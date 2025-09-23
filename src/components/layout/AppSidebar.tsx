@@ -1,98 +1,132 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { 
-  MessageSquare, 
-  Plus, 
+  MessageSquarePlus, 
   History, 
   Settings, 
-  Code, 
+  Trash2,
+  Bot,
+  Code,
+  Palette,
+  Gamepad2,
   FileText,
-  Zap,
-  Brain
+  Zap
 } from "lucide-react";
-
-interface ChatHistory {
-  id: string;
-  title: string;
-  timestamp: string;
-}
+import { useConversations } from "@/hooks/useConversations";
 
 export function AppSidebar() {
-  const [chatHistory] = useState<ChatHistory[]>([
-    { id: "1", title: "Build a React component", timestamp: "2 hours ago" },
-    { id: "2", title: "Debug API integration", timestamp: "Yesterday" },
-    { id: "3", title: "Create landing page", timestamp: "3 days ago" },
-    { id: "4", title: "Optimize performance", timestamp: "1 week ago" },
-  ]);
+  const [isExpanded, setIsExpanded] = useState(true);
+  const { 
+    conversations, 
+    currentConversationId, 
+    setCurrentConversationId,
+    createConversation,
+    deleteConversation 
+  } = useConversations();
 
   const capabilities = [
-    { icon: Code, label: "Code Generation", desc: "Write, debug, and optimize code" },
-    { icon: FileText, label: "File Management", desc: "Create, edit, and organize files" },
-    { icon: Brain, label: "AI Analysis", desc: "Analyze and understand codebases" },
-    { icon: Zap, label: "Real-time Updates", desc: "Instant code modifications" },
+    { icon: Code, label: "Code Generation", desc: "Write & debug any language" },
+    { icon: Palette, label: "Web Design", desc: "Create beautiful websites" },
+    { icon: Gamepad2, label: "Game Development", desc: "Build interactive games" },
+    { icon: FileText, label: "Documentation", desc: "Technical writing & guides" },
+    { icon: Bot, label: "AI Integration", desc: "Connect AI services" },
+    { icon: Zap, label: "Automation", desc: "Workflow optimization" },
   ];
+
+  const handleNewConversation = async () => {
+    await createConversation("New Conversation");
+  };
+
+  const handleDeleteConversation = async (e: React.MouseEvent, conversationId: string) => {
+    e.stopPropagation();
+    await deleteConversation(conversationId);
+  };
 
   return (
     <div className="fixed left-0 top-14 bottom-0 w-64 bg-sidebar border-r border-sidebar-border z-40">
-      {/* New Chat Button */}
-      <div className="p-4">
-        <Button className="w-full bg-gradient-primary hover:opacity-90 text-white glow-primary transition-all duration-300">
-          <Plus className="w-4 h-4 mr-2" />
+      {/* Header */}
+      <div className="p-4 border-b border-sidebar-border">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center glow-primary">
+            <Bot className="w-4 h-4 text-white" />
+          </div>
+          <h2 className="font-semibold gradient-text">W ai Assistant</h2>
+        </div>
+
+        <Button 
+          onClick={handleNewConversation}
+          className="w-full bg-gradient-primary hover:opacity-90 text-white glow-primary transition-all duration-300"
+          size="sm"
+        >
+          <MessageSquarePlus className="w-4 h-4 mr-2" />
           New Chat
         </Button>
       </div>
 
       <ScrollArea className="flex-1 px-4">
+        {/* Recent Conversations */}
+        <div className="py-4">
+          <h3 className="text-sm font-semibold text-sidebar-foreground mb-3 flex items-center gap-2">
+            <History className="w-4 h-4" />
+            Recent Conversations
+          </h3>
+          <div className="space-y-1">
+            {conversations.length === 0 ? (
+              <div className="text-sm text-muted-foreground p-2">
+                No conversations yet
+              </div>
+            ) : (
+              conversations.map((conversation) => (
+                <Button
+                  key={conversation.id}
+                  variant="ghost"
+                  onClick={() => setCurrentConversationId(conversation.id)}
+                  className={`w-full justify-between group h-auto p-2 ${
+                    currentConversationId === conversation.id 
+                      ? 'bg-primary/10 text-primary' 
+                      : 'hover:bg-sidebar-accent'
+                  }`}
+                >
+                  <span className="truncate flex-1 text-left text-sm">
+                    {conversation.title}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="opacity-0 group-hover:opacity-100 h-6 w-6 p-0 hover:bg-destructive/20 hover:text-destructive"
+                    onClick={(e) => handleDeleteConversation(e, conversation.id)}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </Button>
+              ))
+            )}
+          </div>
+        </div>
+
         {/* Capabilities Section */}
-        <div className="mb-6">
+        <div className="py-4 border-t border-sidebar-border">
           <h3 className="text-sm font-semibold text-sidebar-foreground mb-3 flex items-center gap-2">
             <Zap className="w-4 h-4" />
-            Capabilities
+            My Capabilities
           </h3>
           <div className="space-y-2">
             {capabilities.map((capability, index) => (
-              <div key={index} className="glass-card p-3 rounded-lg hover:bg-sidebar-accent/50 transition-colors">
+              <div 
+                key={index} 
+                className="glass-card p-3 rounded-lg hover:bg-sidebar-accent/50 transition-colors"
+              >
                 <div className="flex items-start gap-3">
-                  <capability.icon className="w-4 h-4 text-primary mt-0.5" />
-                  <div>
+                  <div className="w-6 h-6 bg-primary/10 rounded-md flex items-center justify-center flex-shrink-0">
+                    <capability.icon className="w-3 h-3 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-sidebar-foreground">{capability.label}</div>
                     <div className="text-xs text-muted-foreground">{capability.desc}</div>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        <Separator className="my-4" />
-
-        {/* Chat History */}
-        <div>
-          <h3 className="text-sm font-semibold text-sidebar-foreground mb-3 flex items-center gap-2">
-            <History className="w-4 h-4" />
-            Recent Chats
-          </h3>
-          <div className="space-y-1">
-            {chatHistory.map((chat) => (
-              <Button
-                key={chat.id}
-                variant="ghost"
-                className="w-full justify-start text-left p-3 h-auto hover:bg-sidebar-accent"
-              >
-                <div className="flex items-start gap-3 w-full">
-                  <MessageSquare className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-sidebar-foreground truncate">
-                      {chat.title}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {chat.timestamp}
-                    </div>
-                  </div>
-                </div>
-              </Button>
             ))}
           </div>
         </div>
@@ -104,6 +138,10 @@ export function AppSidebar() {
           <Settings className="w-4 h-4 mr-2" />
           Settings
         </Button>
+        
+        <div className="mt-2 text-xs text-muted-foreground text-center">
+          W ai v1.0 • Full Capabilities
+        </div>
       </div>
     </div>
   );
