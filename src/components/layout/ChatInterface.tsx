@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "../chat/MessageBubble";
 import { Send, Paperclip, Mic } from "lucide-react";
 import { useConversations } from "@/hooks/useConversations";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
   id: string;
@@ -78,23 +79,17 @@ export function ChatInterface() {
     setIsLoading(true);
 
     try {
-      // Call the real AI backend
-      const response = await fetch('/functions/v1/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Call the Ollama Cloud backend via Supabase function
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: {
           message: currentInput,
           conversationId: currentConversationId
-        }),
+        }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to get AI response');
+      if (error) {
+        throw error;
       }
-
-      const data = await response.json();
       
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
@@ -108,7 +103,7 @@ export function ChatInterface() {
       console.error('Error getting AI response:', error);
       const errorResponse: Message = {
         id: (Date.now() + 1).toString(),
-        content: "I apologize, but I'm experiencing technical difficulties. Please check that your OpenAI API key is properly configured in the Supabase secrets, or try again in a moment.",
+        content: "I apologize, but I'm experiencing technical difficulties. Please check that your Ollama Cloud API key is properly configured in the backend secrets, or try again in a moment.",
         role: "assistant",
         timestamp: new Date(),
       };
