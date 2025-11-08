@@ -79,15 +79,15 @@ You are helpful, knowledgeable, and can handle any coding or technical challenge
       }))
     ]
 
-    // Call OpenAI API
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Call Ollama Cloud API
+    const ollamaResponse = await fetch('https://api.ollama.cloud/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Authorization': `Bearer ${Deno.env.get('OLLAMA_CLOUD_API_KEY')}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'deepseek-v3.1:671b-cloud',
         messages: messages,
         temperature: 0.7,
         max_tokens: 2000,
@@ -95,12 +95,12 @@ You are helpful, knowledgeable, and can handle any coding or technical challenge
       }),
     })
 
-    if (!openaiResponse.ok) {
-      throw new Error(`OpenAI API error: ${openaiResponse.statusText}`)
+    if (!ollamaResponse.ok) {
+      throw new Error(`Ollama Cloud API error: ${ollamaResponse.statusText}`)
     }
 
-    const openaiData = await openaiResponse.json()
-    const assistantMessage = openaiData.choices[0].message.content
+    const ollamaData = await ollamaResponse.json()
+    const assistantMessage = ollamaData.choices[0].message.content
 
     // Save assistant message
     const { error: assistantMessageError } = await supabaseClient
