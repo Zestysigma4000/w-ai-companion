@@ -37,7 +37,7 @@ export function AppSidebar() {
     
     try {
       await deleteConversation(conversationId);
-      toast.success(`Deleted "${conversationTitle}"`);
+      toast.success(`Deleted "${conversationTitle.length > 30 ? conversationTitle.substring(0, 30) + '...' : conversationTitle}"`);
     } catch (error) {
       console.error('Failed to delete conversation:', error);
       toast.error('Failed to delete conversation. Please try again.');
@@ -93,13 +93,13 @@ export function AppSidebar() {
                         : 'hover:bg-sidebar-accent'
                     }`}
                   >
-                    <span className="truncate flex-1 text-left text-sm">
-                      {conversation.title}
+                    <span className="truncate flex-1 text-left text-sm" title={conversation.title}>
+                      {conversation.title.length > 35 ? conversation.title.substring(0, 35) + '...' : conversation.title}
                     </span>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 w-6 p-0 hover:bg-destructive/20 hover:text-destructive focus:opacity-100"
+                      className="h-6 w-6 p-0 hover:bg-destructive/20 hover:text-destructive shrink-0 ml-1"
                       onClick={(e) => handleDeleteConversation(e, conversation.id)}
                     >
                       <Trash2 className="w-3 h-3" />

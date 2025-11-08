@@ -98,7 +98,13 @@ export function ConversationsProvider({ children }: { children: React.ReactNode 
         throw new Error('Failed to delete conversation');
       }
 
-      setConversations(prev => prev.filter(conv => conv.id !== conversationId));
+      // Update local state immediately
+      setConversations(prev => {
+        const filtered = prev.filter(conv => conv.id !== conversationId);
+        return filtered;
+      });
+      
+      // If we deleted the current conversation, clear it
       if (currentConversationId === conversationId) {
         setCurrentConversationId(null);
       }

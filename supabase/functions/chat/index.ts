@@ -99,21 +99,28 @@ serve(async (req) => {
       }
       conversation = data
     } else {
-      // Generate a smart title from the first message
-      let title = message.substring(0, 50);
+      // Generate a smart title from the first message (max 40 chars)
+      let title = message.substring(0, 40);
       
       // Try to extract a meaningful title from the message
       const sentences = message.split(/[.!?]/);
       if (sentences.length > 0 && sentences[0].trim().length > 0) {
-        title = sentences[0].trim().substring(0, 60);
+        title = sentences[0].trim().substring(0, 40);
       }
       
       // If message is a question, keep it as is
       if (message.includes('?')) {
         const question = message.split('?')[0] + '?';
-        if (question.length <= 60) {
+        if (question.length <= 40) {
           title = question;
+        } else {
+          title = question.substring(0, 37) + '...';
         }
+      }
+      
+      // Add ellipsis if we truncated
+      if (message.length > 40 && !title.endsWith('...')) {
+        title = title.substring(0, 37) + '...';
       }
 
       const { data: newConversation, error: convError } = await supabaseClient
