@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useConversations } from "@/hooks/useConversations";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 export function AppSidebar() {
   const navigate = useNavigate();
@@ -29,8 +30,17 @@ export function AppSidebar() {
 
   const handleDeleteConversation = async (e: React.MouseEvent, conversationId: string) => {
     e.stopPropagation();
-    if (confirm('Are you sure you want to delete this conversation?')) {
+    
+    // Find the conversation to show its title in the toast
+    const conversation = conversations.find(c => c.id === conversationId);
+    const conversationTitle = conversation?.title || 'conversation';
+    
+    try {
       await deleteConversation(conversationId);
+      toast.success(`Deleted "${conversationTitle}"`);
+    } catch (error) {
+      console.error('Failed to delete conversation:', error);
+      toast.error('Failed to delete conversation. Please try again.');
     }
   };
 

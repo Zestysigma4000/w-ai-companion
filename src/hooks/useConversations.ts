@@ -80,7 +80,7 @@ export function useConversations() {
 
       if (error) {
         console.error('Error deleting conversation:', error);
-        return;
+        throw new Error('Failed to delete conversation');
       }
 
       setConversations(prev => prev.filter(conv => conv.id !== conversationId));
@@ -89,6 +89,7 @@ export function useConversations() {
       }
     } catch (error) {
       console.error('Error deleting conversation:', error);
+      throw error;
     }
   };
 

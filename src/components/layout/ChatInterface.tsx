@@ -36,6 +36,7 @@ export function ChatInterface() {
   
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -58,7 +59,7 @@ export function ChatInterface() {
   useEffect(() => {
     const loadMessages = async () => {
       if (currentConversationId) {
-        setIsLoading(true);
+        setLoadingMessages(true);
         const { data: messagesData, error } = await supabase
           .from('messages')
           .select('*')
@@ -68,7 +69,7 @@ export function ChatInterface() {
         if (error) {
           console.error('Error loading messages:', error);
           setMessages([]);
-          setIsLoading(false);
+          setLoadingMessages(false);
           return;
         }
         
@@ -84,7 +85,7 @@ export function ChatInterface() {
         } else {
           setMessages([]);
         }
-        setIsLoading(false);
+        setLoadingMessages(false);
       } else {
         setMessages([
           {
@@ -114,6 +115,10 @@ export function ChatInterface() {
     const currentInput = inputValue;
     setInputValue("");
     setIsLoading(true);
+    
+    // Track start time for minimum typing animation duration
+    const startTime = Date.now();
+    const minTypingDuration = 800; // milliseconds
 
     try {
       // Get current session for authorization
@@ -178,6 +183,14 @@ export function ChatInterface() {
         await refreshConversations();
       }
       
+      // Ensure minimum typing animation duration
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, minTypingDuration - elapsedTime);
+      
+      if (remainingTime > 0) {
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
+      }
+      
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         content: data.response,
@@ -188,6 +201,15 @@ export function ChatInterface() {
       setMessages(prev => [...prev, aiResponse]);
     } catch (error) {
       console.error('Error getting AI response:', error);
+      
+      // Ensure minimum typing animation duration even for errors
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, minTypingDuration - elapsedTime);
+      
+      if (remainingTime > 0) {
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
+      }
+      
       const errorMessage = error instanceof Error ? error.message : "I'm experiencing technical difficulties. Please try again in a moment.";
       const errorResponse: Message = {
         id: (Date.now() + 1).toString(),
