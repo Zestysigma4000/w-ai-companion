@@ -177,8 +177,8 @@ export function ChatInterface() {
         throw error;
       }
 
-      // Update current conversation ID if it was just created
-      if (data.conversationId && !currentConversationId) {
+      // Update current conversation ID if the backend returned a different one
+      if (data.conversationId && data.conversationId !== currentConversationId) {
         setCurrentConversationId(data.conversationId);
         await refreshConversations();
       }

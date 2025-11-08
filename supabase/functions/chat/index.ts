@@ -85,15 +85,20 @@ serve(async (req) => {
     // Get or create conversation
     let conversation
     if (conversationId) {
-      const { data } = await supabaseClient
+      const { data, error: convFetchError } = await supabaseClient
         .from('conversations')
         .select('*')
         .eq('id', conversationId)
         .single()
+      if (convFetchError || !data) {
+        // If a conversation was provided but not found, return an error instead of creating a new one
+        return new Response(
+          JSON.stringify({ error: 'Conversation not found', code: 'CONVERSATION_NOT_FOUND' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        )
+      }
       conversation = data
-    }
-    
-    if (!conversation) {
+    } else {
       // Generate a smart title from the first message
       let title = message.substring(0, 50);
       
