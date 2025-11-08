@@ -1,10 +1,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+// Input validation schema
+const chatRequestSchema = z.object({
+  message: z.string()
+    .trim()
+    .min(1, 'Message cannot be empty')
+    .max(4000, 'Message must be less than 4000 characters'),
+  conversationId: z.string().uuid().optional()
+})
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -24,7 +34,24 @@ serve(async (req) => {
       )
     }
 
-    const { message, conversationId } = await req.json()
+    // Parse and validate request body
+    const body = await req.json()
+    const validationResult = chatRequestSchema.safeParse(body)
+    
+    if (!validationResult.success) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid input', 
+          details: validationResult.error.errors 
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400 
+        }
+      )
+    }
+    
+    const { message, conversationId } = validationResult.data
     
     // Initialize Supabase client with user's token
     const supabaseClient = createClient(
