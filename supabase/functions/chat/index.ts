@@ -83,7 +83,7 @@ You are helpful, knowledgeable, and can handle any coding or technical challenge
     const ollamaResponse = await fetch('https://api.ollama.cloud/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OLLAMA_CLOUD_API_KEY')}`,
+        'Authorization': `Bearer ${Deno.env.get('VITE_OLLAMA_CLOUD_API_KEY')}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
