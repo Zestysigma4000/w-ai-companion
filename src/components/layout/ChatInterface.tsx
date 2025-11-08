@@ -79,11 +79,21 @@ export function ChatInterface() {
     setIsLoading(true);
 
     try {
+      // Get current session for authorization
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("You must be logged in to send messages");
+      }
+
       // Call the Ollama Cloud backend via Supabase function
       const { data, error } = await supabase.functions.invoke('chat', {
         body: {
           message: currentInput,
           conversationId: currentConversationId
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
         }
       });
 

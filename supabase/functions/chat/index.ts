@@ -12,13 +12,42 @@ serve(async (req) => {
   }
 
   try {
+    // Get authenticated user
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401 
+        }
+      )
+    }
+
     const { message, conversationId } = await req.json()
     
-    // Initialize Supabase client
+    // Initialize Supabase client with user's token
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: authHeader }
+        }
+      }
     )
+
+    // Verify user is authenticated
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401
+        }
+      )
+    }
 
     // Get or create conversation
     let conversation
@@ -34,7 +63,10 @@ serve(async (req) => {
     if (!conversation) {
       const { data: newConversation, error: convError } = await supabaseClient
         .from('conversations')
-        .insert({ title: message.substring(0, 50) + '...' })
+        .insert({ 
+          title: message.substring(0, 50) + '...',
+          user_id: user.id
+        })
         .select()
         .single()
       
