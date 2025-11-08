@@ -6,12 +6,7 @@ import {
   History, 
   Settings, 
   Trash2,
-  Bot,
-  Code,
-  Palette,
-  Gamepad2,
-  FileText,
-  Zap
+  Bot
 } from "lucide-react";
 import { useConversations } from "@/hooks/useConversations";
 
@@ -24,15 +19,6 @@ export function AppSidebar() {
     createConversation,
     deleteConversation 
   } = useConversations();
-
-  const capabilities = [
-    { icon: Code, label: "Code Generation", desc: "Write & debug any language" },
-    { icon: Palette, label: "Web Design", desc: "Create beautiful websites" },
-    { icon: Gamepad2, label: "Game Development", desc: "Build interactive games" },
-    { icon: FileText, label: "Documentation", desc: "Technical writing & guides" },
-    { icon: Bot, label: "AI Integration", desc: "Connect AI services" },
-    { icon: Zap, label: "Automation", desc: "Workflow optimization" },
-  ];
 
   const handleNewConversation = async () => {
     await createConversation("New Conversation");
@@ -105,31 +91,6 @@ export function AppSidebar() {
           </div>
         </div>
 
-        {/* Capabilities Section */}
-        <div className="py-4 border-t border-sidebar-border">
-          <h3 className="text-sm font-semibold text-sidebar-foreground mb-3 flex items-center gap-2">
-            <Zap className="w-4 h-4" />
-            My Capabilities
-          </h3>
-          <div className="space-y-2">
-            {capabilities.map((capability, index) => (
-              <div 
-                key={index} 
-                className="glass-card p-3 rounded-lg hover:bg-sidebar-accent/50 transition-colors"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-6 h-6 bg-primary/10 rounded-md flex items-center justify-center flex-shrink-0">
-                    <capability.icon className="w-3 h-3 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-sidebar-foreground">{capability.label}</div>
-                    <div className="text-xs text-muted-foreground">{capability.desc}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       </ScrollArea>
 
       {/* Bottom Settings */}

@@ -1,15 +1,11 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Conversation {
   id: string;
   title: string;
   created_at: string;
   updated_at: string;
-  messages?: Array<{
-    content: string;
-    role: string;
-    created_at: string;
-  }>;
 }
 
 export function useConversations() {
@@ -19,9 +15,20 @@ export function useConversations() {
 
   const fetchConversations = async () => {
     try {
-      const response = await fetch('/functions/v1/conversations');
-      if (response.ok) {
-        const data = await response.json();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching conversations:', error);
+        return;
+      }
+
+      if (data) {
         setConversations(data);
       }
     } catch (error) {
@@ -32,19 +39,30 @@ export function useConversations() {
   const createConversation = async (title: string = 'New Conversation') => {
     setLoading(true);
     try {
-      const response = await fetch('/functions/v1/conversations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ title }),
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.error('No session found');
+        return;
+      }
 
-      if (response.ok) {
-        const newConversation = await response.json();
-        setConversations(prev => [newConversation, ...prev]);
-        setCurrentConversationId(newConversation.id);
-        return newConversation;
+      const { data, error } = await supabase
+        .from('conversations')
+        .insert({
+          title,
+          user_id: session.user.id
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating conversation:', error);
+        return;
+      }
+
+      if (data) {
+        setConversations(prev => [data, ...prev]);
+        setCurrentConversationId(data.id);
+        return data;
       }
     } catch (error) {
       console.error('Error creating conversation:', error);
@@ -55,15 +73,19 @@ export function useConversations() {
 
   const deleteConversation = async (conversationId: string) => {
     try {
-      const response = await fetch(`/functions/v1/conversations?id=${conversationId}`, {
-        method: 'DELETE',
-      });
+      const { error } = await supabase
+        .from('conversations')
+        .delete()
+        .eq('id', conversationId);
 
-      if (response.ok) {
-        setConversations(prev => prev.filter(conv => conv.id !== conversationId));
-        if (currentConversationId === conversationId) {
-          setCurrentConversationId(null);
-        }
+      if (error) {
+        console.error('Error deleting conversation:', error);
+        return;
+      }
+
+      setConversations(prev => prev.filter(conv => conv.id !== conversationId));
+      if (currentConversationId === conversationId) {
+        setCurrentConversationId(null);
       }
     } catch (error) {
       console.error('Error deleting conversation:', error);

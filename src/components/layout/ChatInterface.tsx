@@ -48,19 +48,44 @@ export function ChatInterface() {
 
   // Reset messages when conversation changes
   useEffect(() => {
-    if (currentConversationId) {
-      // In a real implementation, you'd fetch messages for this conversation
-      setMessages([]);
-    } else {
-      setMessages([
-        {
-          id: "welcome",
-          content: "Hello! I'm W ai, your powerful AI assistant with full capabilities. I can help you write code, debug applications, create websites, games, and solve any technical challenge. I have access to the latest AI models and can provide working solutions to your problems. What would you like to build today?",
-          role: "assistant",
-          timestamp: new Date(),
+    const loadMessages = async () => {
+      if (currentConversationId) {
+        // Fetch messages for this conversation from the database
+        const { data: messagesData, error } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('conversation_id', currentConversationId)
+          .order('created_at', { ascending: true });
+        
+        if (error) {
+          console.error('Error loading messages:', error);
+          return;
         }
-      ]);
-    }
+        
+        if (messagesData && messagesData.length > 0) {
+          const loadedMessages: Message[] = messagesData.map((msg) => ({
+            id: msg.id,
+            content: msg.content,
+            role: msg.role as "user" | "assistant",
+            timestamp: new Date(msg.created_at),
+          }));
+          setMessages(loadedMessages);
+        } else {
+          setMessages([]);
+        }
+      } else {
+        setMessages([
+          {
+            id: "welcome",
+            content: "Hello! I'm W ai, your powerful AI assistant with full capabilities. I can help you write code, debug applications, create websites, games, and solve any technical challenge. I have access to the latest AI models and can provide working solutions to your problems. What would you like to build today?",
+            role: "assistant",
+            timestamp: new Date(),
+          }
+        ]);
+      }
+    };
+    
+    loadMessages();
   }, [currentConversationId]);
 
   const handleSendMessage = async () => {
@@ -86,7 +111,7 @@ export function ChatInterface() {
         throw new Error("You must be logged in to send messages");
       }
 
-      // Call the Ollama Cloud backend via Supabase function
+      // Call the AI backend via Supabase function
       const { data, error } = await supabase.functions.invoke('chat', {
         body: {
           message: currentInput,
@@ -98,6 +123,13 @@ export function ChatInterface() {
       });
 
       if (error) {
+        // Handle specific error codes
+        if (error.message?.includes('429') || error.message?.includes('Rate limit')) {
+          throw new Error("Rate limit exceeded. Please try again in a moment.");
+        }
+        if (error.message?.includes('402') || error.message?.includes('Payment')) {
+          throw new Error("Payment required. Please add credits to your account.");
+        }
         throw error;
       }
       
@@ -111,9 +143,10 @@ export function ChatInterface() {
       setMessages(prev => [...prev, aiResponse]);
     } catch (error) {
       console.error('Error getting AI response:', error);
+      const errorMessage = error instanceof Error ? error.message : "I'm experiencing technical difficulties. Please try again in a moment.";
       const errorResponse: Message = {
         id: (Date.now() + 1).toString(),
-        content: "I apologize, but I'm experiencing technical difficulties. Please check that your Ollama Cloud API key is properly configured in the backend secrets, or try again in a moment.",
+        content: errorMessage,
         role: "assistant",
         timestamp: new Date(),
       };
