@@ -79,13 +79,15 @@ You are helpful, knowledgeable, and can handle any coding or technical challenge
       }))
     ]
 
-    // Get API key and log for debugging
+    // Get API key
     const apiKey = Deno.env.get('VITE_OLLAMA_CLOUD_API_KEY')
-    console.log('API Key exists:', !!apiKey)
-    console.log('API Key first 10 chars:', apiKey?.substring(0, 10))
     
-    // Call Ollama Cloud API
-    const ollamaResponse = await fetch('https://api.ollama.cloud/v1/chat/completions', {
+    if (!apiKey) {
+      throw new Error('VITE_OLLAMA_CLOUD_API_KEY is not configured')
+    }
+    
+    // Call Ollama Cloud API using OpenAI-compatible endpoint
+    const ollamaResponse = await fetch('https://ollama.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
