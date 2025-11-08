@@ -38,14 +38,13 @@ export function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-    }
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -55,11 +54,11 @@ export function ChatInterface() {
     }
   }, [inputValue]);
 
-  // Reset messages when conversation changes
+  // Load messages when conversation changes
   useEffect(() => {
     const loadMessages = async () => {
       if (currentConversationId) {
-        // Fetch messages for this conversation from the database
+        setIsLoading(true);
         const { data: messagesData, error } = await supabase
           .from('messages')
           .select('*')
@@ -68,6 +67,8 @@ export function ChatInterface() {
         
         if (error) {
           console.error('Error loading messages:', error);
+          setMessages([]);
+          setIsLoading(false);
           return;
         }
         
@@ -83,6 +84,7 @@ export function ChatInterface() {
         } else {
           setMessages([]);
         }
+        setIsLoading(false);
       } else {
         setMessages([
           {
@@ -221,7 +223,7 @@ export function ChatInterface() {
   return (
     <div className="flex flex-col h-full max-h-screen">
       {/* Messages Area */}
-      <ScrollArea ref={scrollAreaRef} className="flex-1 p-6">
+      <ScrollArea className="flex-1 p-6">
         <div className="max-w-4xl mx-auto space-y-6">
           {messages.map((message) => (
             <MessageBubble key={message.id} message={message} />
@@ -238,6 +240,7 @@ export function ChatInterface() {
               }} 
             />
           )}
+          <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
 

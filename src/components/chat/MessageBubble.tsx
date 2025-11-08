@@ -54,13 +54,13 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   };
 
   const TypingIndicator = () => (
-    <div className="flex items-center gap-1">
-      <div className="flex gap-1">
-        <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-        <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-        <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
+    <div className="flex items-center gap-2">
+      <div className="flex gap-1.5">
+        <div className="w-2.5 h-2.5 bg-primary rounded-full animate-[bounce_1.4s_ease-in-out_infinite]" style={{ animationDelay: '0ms' }}></div>
+        <div className="w-2.5 h-2.5 bg-primary rounded-full animate-[bounce_1.4s_ease-in-out_infinite]" style={{ animationDelay: '200ms' }}></div>
+        <div className="w-2.5 h-2.5 bg-primary rounded-full animate-[bounce_1.4s_ease-in-out_infinite]" style={{ animationDelay: '400ms' }}></div>
       </div>
-      <span className="text-sm text-muted-foreground ml-2">W ai is thinking...</span>
+      <span className="text-sm text-muted-foreground">W ai is thinking...</span>
     </div>
   );
 

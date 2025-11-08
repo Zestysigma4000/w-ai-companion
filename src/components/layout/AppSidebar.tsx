@@ -6,14 +6,15 @@ import {
   History, 
   Settings, 
   Trash2,
-  Bot
+  Bot,
+  MoreHorizontal
 } from "lucide-react";
 import { useConversations } from "@/hooks/useConversations";
 import { useNavigate } from "react-router-dom";
 
 export function AppSidebar() {
-  const [isExpanded, setIsExpanded] = useState(true);
   const navigate = useNavigate();
+  const [isListExpanded, setIsListExpanded] = useState(false);
   const { 
     conversations, 
     currentConversationId, 
@@ -28,8 +29,14 @@ export function AppSidebar() {
 
   const handleDeleteConversation = async (e: React.MouseEvent, conversationId: string) => {
     e.stopPropagation();
-    await deleteConversation(conversationId);
+    if (confirm('Are you sure you want to delete this conversation?')) {
+      await deleteConversation(conversationId);
+    }
   };
+
+  const displayedConversations = isListExpanded 
+    ? conversations 
+    : conversations.slice(0, 4);
 
   return (
     <div className="fixed left-0 top-14 bottom-0 w-64 bg-sidebar border-r border-sidebar-border z-40">
@@ -65,29 +72,45 @@ export function AppSidebar() {
                 No conversations yet
               </div>
             ) : (
-              conversations.map((conversation) => (
-                <div
-                  key={conversation.id}
-                  onClick={() => setCurrentConversationId(conversation.id)}
-                  className={`w-full flex items-center justify-between group h-auto p-2 rounded-md cursor-pointer transition-colors ${
-                    currentConversationId === conversation.id 
-                      ? 'bg-primary/10 text-primary' 
-                      : 'hover:bg-sidebar-accent'
-                  }`}
-                >
-                  <span className="truncate flex-1 text-left text-sm">
-                    {conversation.title}
-                  </span>
+              <>
+                {displayedConversations.map((conversation) => (
+                  <div
+                    key={conversation.id}
+                    onClick={() => setCurrentConversationId(conversation.id)}
+                    className={`w-full flex items-center justify-between group h-auto p-2 rounded-md cursor-pointer transition-colors ${
+                      currentConversationId === conversation.id 
+                        ? 'bg-primary/10 text-primary' 
+                        : 'hover:bg-sidebar-accent'
+                    }`}
+                  >
+                    <span className="truncate flex-1 text-left text-sm">
+                      {conversation.title}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="opacity-0 group-hover:opacity-100 h-6 w-6 p-0 hover:bg-destructive/20 hover:text-destructive"
+                      onClick={(e) => handleDeleteConversation(e, conversation.id)}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ))}
+                
+                {conversations.length > 4 && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="opacity-0 group-hover:opacity-100 h-6 w-6 p-0 hover:bg-destructive/20 hover:text-destructive"
-                    onClick={(e) => handleDeleteConversation(e, conversation.id)}
+                    className="w-full justify-center py-2 h-auto"
+                    onClick={() => setIsListExpanded(!isListExpanded)}
                   >
-                    <Trash2 className="w-3 h-3" />
+                    <MoreHorizontal className="w-4 h-4" />
+                    <span className="ml-2 text-xs">
+                      {isListExpanded ? 'Show less' : `Show ${conversations.length - 4} more`}
+                    </span>
                   </Button>
-                </div>
-              ))
+                )}
+              </>
             )}
           </div>
         </div>
