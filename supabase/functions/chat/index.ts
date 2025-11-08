@@ -13,7 +13,13 @@ const chatRequestSchema = z.object({
     .trim()
     .min(1, 'Message cannot be empty')
     .max(4000, 'Message must be less than 4000 characters'),
-  conversationId: z.string().uuid().optional().nullable()
+  conversationId: z.string().uuid().optional().nullable(),
+  attachments: z.array(z.object({
+    name: z.string(),
+    path: z.string(),
+    type: z.string(),
+    size: z.number()
+  })).optional()
 })
 
 serve(async (req) => {
@@ -51,7 +57,7 @@ serve(async (req) => {
       )
     }
     
-    const { message, conversationId } = validationResult.data
+    const { message, conversationId, attachments = [] } = validationResult.data
     
     // Initialize Supabase client with user's token
     const supabaseClient = createClient(
@@ -88,10 +94,27 @@ serve(async (req) => {
     }
     
     if (!conversation) {
+      // Generate a smart title from the first message
+      let title = message.substring(0, 50);
+      
+      // Try to extract a meaningful title from the message
+      const sentences = message.split(/[.!?]/);
+      if (sentences.length > 0 && sentences[0].trim().length > 0) {
+        title = sentences[0].trim().substring(0, 60);
+      }
+      
+      // If message is a question, keep it as is
+      if (message.includes('?')) {
+        const question = message.split('?')[0] + '?';
+        if (question.length <= 60) {
+          title = question;
+        }
+      }
+
       const { data: newConversation, error: convError } = await supabaseClient
         .from('conversations')
         .insert({ 
-          title: message.substring(0, 50) + '...',
+          title: title,
           user_id: user.id
         })
         .select()
@@ -101,14 +124,15 @@ serve(async (req) => {
       conversation = newConversation
     }
 
-    // Save user message
+    // Save user message with attachments
     const { error: userMessageError } = await supabaseClient
       .from('messages')
       .insert({
         conversation_id: conversation.id,
         content: message,
         role: 'user',
-        user_id: user.id
+        user_id: user.id,
+        attachments: attachments
       })
 
     if (userMessageError) throw userMessageError

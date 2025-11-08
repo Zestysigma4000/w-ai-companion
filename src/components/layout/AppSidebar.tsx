@@ -66,11 +66,10 @@ export function AppSidebar() {
               </div>
             ) : (
               conversations.map((conversation) => (
-                <Button
+                <div
                   key={conversation.id}
-                  variant="ghost"
                   onClick={() => setCurrentConversationId(conversation.id)}
-                  className={`w-full justify-between group h-auto p-2 ${
+                  className={`w-full flex items-center justify-between group h-auto p-2 rounded-md cursor-pointer transition-colors ${
                     currentConversationId === conversation.id 
                       ? 'bg-primary/10 text-primary' 
                       : 'hover:bg-sidebar-accent'
@@ -87,7 +86,7 @@ export function AppSidebar() {
                   >
                     <Trash2 className="w-3 h-3" />
                   </Button>
-                </Button>
+                </div>
               ))
             )}
           </div>

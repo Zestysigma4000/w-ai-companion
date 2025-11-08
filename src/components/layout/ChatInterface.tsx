@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "../chat/MessageBubble";
-import { Send } from "lucide-react";
+import { Send, File } from "lucide-react";
 import { useConversations } from "@/hooks/useConversations";
 import { supabase } from "@/integrations/supabase/client";
 import { VoiceInput } from "../chat/VoiceInput";
@@ -15,10 +15,16 @@ interface Message {
   role: "user" | "assistant";
   timestamp: Date;
   isTyping?: boolean;
+  attachments?: Array<{
+    name: string;
+    path: string;
+    type: string;
+    size: number;
+  }>;
 }
 
 export function ChatInterface() {
-  const { currentConversationId } = useConversations();
+  const { currentConversationId, setCurrentConversationId, refreshConversations } = useConversations();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -71,6 +77,7 @@ export function ChatInterface() {
             content: msg.content,
             role: msg.role as "user" | "assistant",
             timestamp: new Date(msg.created_at),
+            attachments: msg.attachments as any[] || []
           }));
           setMessages(loadedMessages);
         } else {
@@ -114,11 +121,38 @@ export function ChatInterface() {
         throw new Error("You must be logged in to send messages");
       }
 
+      // Upload attached files if any
+      let uploadedFiles: any[] = [];
+      if (attachedFiles.length > 0) {
+        for (const file of attachedFiles) {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${session.user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('chat-attachments')
+            .upload(fileName, file);
+
+          if (uploadError) {
+            console.error('Error uploading file:', uploadError);
+            throw new Error(`Failed to upload ${file.name}`);
+          }
+
+          uploadedFiles.push({
+            name: file.name,
+            path: uploadData.path,
+            type: file.type,
+            size: file.size
+          });
+        }
+        setAttachedFiles([]);
+      }
+
       // Call the AI backend via Supabase function
       const { data, error } = await supabase.functions.invoke('chat', {
         body: {
           message: currentInput,
-          conversationId: currentConversationId || null
+          conversationId: currentConversationId || null,
+          attachments: uploadedFiles
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`
@@ -134,6 +168,12 @@ export function ChatInterface() {
           throw new Error("Payment required. Please add credits to your account.");
         }
         throw error;
+      }
+
+      // Update current conversation ID if it was just created
+      if (data.conversationId && !currentConversationId) {
+        setCurrentConversationId(data.conversationId);
+        await refreshConversations();
       }
       
       const aiResponse: Message = {
@@ -204,6 +244,32 @@ export function ChatInterface() {
       {/* Input Area */}
       <div className="border-t border-border bg-background/80 backdrop-blur-lg">
         <div className="max-w-4xl mx-auto p-6">
+          {/* Show attached files preview */}
+          {attachedFiles.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {attachedFiles.map((file, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg text-sm"
+                >
+                  <File className="w-4 h-4 text-muted-foreground" />
+                  <span className="truncate max-w-[200px]">{file.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {(file.size / 1024).toFixed(1)}KB
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAttachedFiles(prev => prev.filter((_, i) => i !== index))}
+                    className="h-5 w-5 p-0 hover:bg-destructive/20 hover:text-destructive"
+                  >
+                    ×
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          
           <div className="relative">
             <div className="flex items-end gap-3 bg-card border border-border rounded-xl p-4 shadow-card-custom">
               <FileAttachment onFileSelect={handleFileSelect} />

@@ -9,76 +9,64 @@ interface VoiceInputProps {
 
 export function VoiceInput({ onTranscript }: VoiceInputProps) {
   const [isRecording, setIsRecording] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const recognitionRef = useRef<any>(null);
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
+      // Check if browser supports Web Speech API
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      
+      if (!SpeechRecognition) {
+        toast.error("Voice input is not supported in this browser. Try Chrome or Edge.");
+        return;
+      }
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data);
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+        toast.success("Listening...");
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        onTranscript(transcript);
+        toast.success("Voice input captured");
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error("Speech recognition error:", event.error);
+        setIsRecording(false);
+        if (event.error === 'no-speech') {
+          toast.error("No speech detected. Please try again.");
+        } else if (event.error === 'not-allowed') {
+          toast.error("Microphone access denied. Please enable it in browser settings.");
+        } else {
+          toast.error(`Voice input error: ${event.error}`);
         }
       };
 
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        await processAudio(audioBlob);
-        
-        // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
+      recognition.onend = () => {
+        setIsRecording(false);
       };
 
-      mediaRecorder.start();
-      setIsRecording(true);
-      toast.success("Recording started");
+      recognition.start();
     } catch (error) {
-      console.error("Error accessing microphone:", error);
-      toast.error("Could not access microphone. Please check permissions.");
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
+      console.error("Error starting voice input:", error);
+      toast.error("Could not start voice input. Please check permissions.");
       setIsRecording(false);
     }
   };
 
-  const processAudio = async (audioBlob: Blob) => {
-    setIsProcessing(true);
-    
-    try {
-      // Convert blob to base64
-      const reader = new FileReader();
-      reader.readAsDataURL(audioBlob);
-      
-      reader.onloadend = () => {
-        const base64Audio = reader.result as string;
-        const base64Data = base64Audio.split(',')[1];
-        
-        // For now, show a message that voice transcription is coming soon
-        toast.info("Voice transcription feature coming soon! For now, please type your message.");
-        onTranscript("");
-        setIsProcessing(false);
-        
-        // TODO: Implement actual transcription with Whisper API
-        // This would require creating an edge function that calls OpenAI's Whisper API
-      };
-      
-      reader.onerror = () => {
-        toast.error("Failed to process audio");
-        setIsProcessing(false);
-      };
-    } catch (error) {
-      console.error("Error processing audio:", error);
-      toast.error("Failed to process audio");
-      setIsProcessing(false);
+  const stopRecording = () => {
+    if (recognitionRef.current && isRecording) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
     }
   };
 
@@ -95,8 +83,8 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
       variant="ghost" 
       size="sm"
       onClick={handleClick}
-      disabled={isProcessing}
-      className={`text-muted-foreground hover:text-foreground ${isRecording ? 'text-red-500 hover:text-red-600' : ''}`}
+      className={`text-muted-foreground hover:text-foreground ${isRecording ? 'text-red-500 hover:text-red-600 animate-pulse' : ''}`}
+      title={isRecording ? "Stop recording" : "Start voice input"}
     >
       {isRecording ? (
         <Square className="w-4 h-4 fill-current" />

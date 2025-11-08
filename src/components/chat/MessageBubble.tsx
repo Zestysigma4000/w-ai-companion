@@ -1,7 +1,8 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Copy, ThumbsUp, ThumbsDown, User, Sparkles } from "lucide-react";
+import { Copy, ThumbsUp, ThumbsDown, User, Sparkles, File, Download } from "lucide-react";
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
   id: string;
@@ -9,6 +10,12 @@ interface Message {
   role: "user" | "assistant";
   timestamp: Date;
   isTyping?: boolean;
+  attachments?: Array<{
+    name: string;
+    path: string;
+    type: string;
+    size: number;
+  }>;
 }
 
 interface MessageBubbleProps {
@@ -23,6 +30,27 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     await navigator.clipboard.writeText(message.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadAttachment = async (path: string, name: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('chat-attachments')
+        .download(path);
+
+      if (error) throw error;
+
+      const url = window.URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+    }
   };
 
   const TypingIndicator = () => (
@@ -59,11 +87,39 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           {message.isTyping ? (
             <TypingIndicator />
           ) : (
-            <div className="prose prose-sm max-w-none dark:prose-invert">
-              <p className="whitespace-pre-wrap text-sm leading-relaxed m-0">
-                {message.content}
-              </p>
-            </div>
+            <>
+              <div className="prose prose-sm max-w-none dark:prose-invert">
+                <p className="whitespace-pre-wrap text-sm leading-relaxed m-0">
+                  {message.content}
+                </p>
+              </div>
+              
+              {/* Attachments */}
+              {message.attachments && message.attachments.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {message.attachments.map((attachment, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors"
+                    >
+                      <File className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <span className="text-xs flex-1 truncate">{attachment.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {(attachment.size / 1024).toFixed(1)}KB
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDownloadAttachment(attachment.path, attachment.name)}
+                        className="h-6 w-6 p-0"
+                      >
+                        <Download className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
 
