@@ -9,9 +9,11 @@ import {
   Bot
 } from "lucide-react";
 import { useConversations } from "@/hooks/useConversations";
+import { useNavigate } from "react-router-dom";
 
 export function AppSidebar() {
   const [isExpanded, setIsExpanded] = useState(true);
+  const navigate = useNavigate();
   const { 
     conversations, 
     currentConversationId, 
@@ -95,7 +97,11 @@ export function AppSidebar() {
 
       {/* Bottom Settings */}
       <div className="p-4 border-t border-sidebar-border">
-        <Button variant="ghost" className="w-full justify-start hover:bg-sidebar-accent">
+        <Button 
+          variant="ghost" 
+          className="w-full justify-start hover:bg-sidebar-accent"
+          onClick={() => navigate("/settings")}
+        >
           <Settings className="w-4 h-4 mr-2" />
           Settings
         </Button>

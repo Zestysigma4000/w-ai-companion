@@ -13,7 +13,7 @@ const chatRequestSchema = z.object({
     .trim()
     .min(1, 'Message cannot be empty')
     .max(4000, 'Message must be less than 4000 characters'),
-  conversationId: z.string().uuid().optional()
+  conversationId: z.string().uuid().optional().nullable()
 })
 
 serve(async (req) => {
@@ -140,21 +140,21 @@ You are helpful, knowledgeable, and can handle any coding or technical challenge
     ]
 
     // Get API key
-    const apiKey = Deno.env.get('LOVABLE_API_KEY')
+    const apiKey = Deno.env.get('VITE_OLLAMA_CLOUD_API_KEY')
     
     if (!apiKey) {
-      throw new Error('LOVABLE_API_KEY is not configured')
+      throw new Error('VITE_OLLAMA_CLOUD_API_KEY is not configured')
     }
     
-    // Call Lovable AI Gateway
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Call Ollama Cloud API using OpenAI-compatible endpoint
+    const ollamaResponse = await fetch('https://ollama.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'deepseek-v3.1:671b-cloud',
         messages: messages,
         temperature: 0.7,
         max_tokens: 2000,
@@ -162,35 +162,14 @@ You are helpful, knowledgeable, and can handle any coding or technical challenge
       }),
     })
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text()
-      console.error('Lovable AI error:', aiResponse.status, errorText)
-      
-      if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 429
-          }
-        )
-      }
-      
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Payment required. Please add credits to continue.' }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 402
-          }
-        )
-      }
-      
-      throw new Error('An error occurred processing your request. Please try again later.')
+    if (!ollamaResponse.ok) {
+      const errorText = await ollamaResponse.text()
+      console.error('Ollama API error:', ollamaResponse.status, errorText)
+      throw new Error('Failed to get response from AI. Please try again.')
     }
 
-    const aiData = await aiResponse.json()
-    const assistantMessage = aiData.choices[0].message.content
+    const ollamaData = await ollamaResponse.json()
+    const assistantMessage = ollamaData.choices[0].message.content
 
     // Save assistant message
     const { error: assistantMessageError } = await supabaseClient

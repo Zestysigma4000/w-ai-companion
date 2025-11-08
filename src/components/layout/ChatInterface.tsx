@@ -3,9 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "../chat/MessageBubble";
-import { Send, Paperclip, Mic } from "lucide-react";
+import { Send } from "lucide-react";
 import { useConversations } from "@/hooks/useConversations";
 import { supabase } from "@/integrations/supabase/client";
+import { VoiceInput } from "../chat/VoiceInput";
+import { FileAttachment } from "../chat/FileAttachment";
 
 interface Message {
   id: string;
@@ -28,6 +30,7 @@ export function ChatInterface() {
   
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -115,7 +118,7 @@ export function ChatInterface() {
       const { data, error } = await supabase.functions.invoke('chat', {
         body: {
           message: currentInput,
-          conversationId: currentConversationId
+          conversationId: currentConversationId || null
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`
@@ -163,6 +166,18 @@ export function ChatInterface() {
     }
   };
 
+  const handleVoiceTranscript = (text: string) => {
+    if (text) {
+      setInputValue(text);
+    }
+  };
+
+  const handleFileSelect = (files: File[]) => {
+    setAttachedFiles(files);
+    // TODO: Implement file upload and processing
+    // This would require creating storage buckets and handling file uploads
+  };
+
   return (
     <div className="flex flex-col h-full max-h-screen">
       {/* Messages Area */}
@@ -191,13 +206,7 @@ export function ChatInterface() {
         <div className="max-w-4xl mx-auto p-6">
           <div className="relative">
             <div className="flex items-end gap-3 bg-card border border-border rounded-xl p-4 shadow-card-custom">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <Paperclip className="w-4 h-4" />
-              </Button>
+              <FileAttachment onFileSelect={handleFileSelect} />
               
               <Textarea
                 ref={textareaRef}
@@ -210,13 +219,7 @@ export function ChatInterface() {
               />
               
               <div className="flex items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <Mic className="w-4 h-4" />
-                </Button>
+                <VoiceInput onTranscript={handleVoiceTranscript} />
                 
                 <Button 
                   onClick={handleSendMessage}
