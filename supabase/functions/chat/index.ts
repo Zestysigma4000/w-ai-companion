@@ -107,7 +107,8 @@ serve(async (req) => {
       .insert({
         conversation_id: conversation.id,
         content: message,
-        role: 'user'
+        role: 'user',
+        user_id: user.id
       })
 
     if (userMessageError) throw userMessageError
@@ -176,7 +177,8 @@ You are helpful, knowledgeable, and can handle any coding or technical challenge
       .insert({
         conversation_id: conversation.id,
         content: assistantMessage,
-        role: 'assistant'
+        role: 'assistant',
+        user_id: user.id
       })
 
     if (assistantMessageError) throw assistantMessageError
@@ -192,9 +194,10 @@ You are helpful, knowledgeable, and can handle any coding or technical challenge
       },
     )
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Edge function error:', error)
+    // Return generic error message to prevent information leakage
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: 'An error occurred processing your request. Please try again later.' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,

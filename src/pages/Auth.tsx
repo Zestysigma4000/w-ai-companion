@@ -7,6 +7,19 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { z } from "zod";
+
+// Validation schema for auth forms
+const authSchema = z.object({
+  email: z.string()
+    .trim()
+    .toLowerCase()
+    .email("Please enter a valid email address")
+    .max(255, "Email must be less than 255 characters"),
+  password: z.string()
+    .min(6, "Password must be at least 6 characters")
+    .max(100, "Password must be less than 100 characters"),
+});
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -19,9 +32,20 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
+      // Validate input
+      const validationResult = authSchema.safeParse({ email, password });
+      
+      if (!validationResult.success) {
+        const firstError = validationResult.error.errors[0];
+        toast.error(firstError.message);
+        return;
+      }
+
+      const { email: validatedEmail, password: validatedPassword } = validationResult.data;
+
       const { error } = await supabase.auth.signUp({
-        email,
-        password,
+        email: validatedEmail,
+        password: validatedPassword,
         options: {
           emailRedirectTo: `${window.location.origin}/`,
         },
@@ -43,9 +67,20 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
+      // Validate input
+      const validationResult = authSchema.safeParse({ email, password });
+      
+      if (!validationResult.success) {
+        const firstError = validationResult.error.errors[0];
+        toast.error(firstError.message);
+        return;
+      }
+
+      const { email: validatedEmail, password: validatedPassword } = validationResult.data;
+
       const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: validatedEmail,
+        password: validatedPassword,
       });
 
       if (error) throw error;
