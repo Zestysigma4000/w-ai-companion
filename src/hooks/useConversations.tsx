@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Conversation {
@@ -8,7 +8,19 @@ interface Conversation {
   updated_at: string;
 }
 
-export function useConversations() {
+interface ConversationsContextValue {
+  conversations: Conversation[];
+  currentConversationId: string | null;
+  setCurrentConversationId: (id: string | null) => void;
+  createConversation: (title?: string) => Promise<Conversation | undefined>;
+  deleteConversation: (conversationId: string) => Promise<void>;
+  refreshConversations: () => Promise<void>;
+  loading: boolean;
+}
+
+const ConversationsContext = createContext<ConversationsContextValue | undefined>(undefined);
+
+export function ConversationsProvider({ children }: { children: React.ReactNode }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -30,6 +42,9 @@ export function useConversations() {
 
       if (data) {
         setConversations(data);
+        if (!currentConversationId && data.length > 0) {
+          setCurrentConversationId(data[0].id);
+        }
       }
     } catch (error) {
       console.error('Error fetching conversations:', error);
@@ -95,9 +110,10 @@ export function useConversations() {
 
   useEffect(() => {
     fetchConversations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return {
+  const value = useMemo<ConversationsContextValue>(() => ({
     conversations,
     currentConversationId,
     setCurrentConversationId,
@@ -105,5 +121,19 @@ export function useConversations() {
     deleteConversation,
     loading,
     refreshConversations: fetchConversations,
-  };
+  }), [conversations, currentConversationId, loading]);
+
+  return (
+    <ConversationsContext.Provider value={value}>
+      {children}
+    </ConversationsContext.Provider>
+  );
+}
+
+export function useConversations() {
+  const ctx = useContext(ConversationsContext);
+  if (!ctx) {
+    throw new Error('useConversations must be used within a ConversationsProvider');
+  }
+  return ctx;
 }

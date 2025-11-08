@@ -183,22 +183,48 @@ export function ChatInterface() {
         await refreshConversations();
       }
       
+      // Typewriter effect: progressively reveal the AI response
+      const typingMessageId = (Date.now() + 1).toString();
+      const fullText: string = data.response || '';
+
+      // Add a placeholder assistant message that will be updated
+      setMessages(prev => [
+        ...prev,
+        {
+          id: typingMessageId,
+          content: '',
+          role: 'assistant',
+          timestamp: new Date(),
+          isTyping: true,
+        },
+      ]);
+
       // Ensure minimum typing animation duration
       const elapsedTime = Date.now() - startTime;
       const remainingTime = Math.max(0, minTypingDuration - elapsedTime);
-      
       if (remainingTime > 0) {
         await new Promise(resolve => setTimeout(resolve, remainingTime));
       }
-      
-      const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        content: data.response,
-        role: "assistant",
-        timestamp: new Date(),
-      };
-      
-      setMessages(prev => [...prev, aiResponse]);
+
+      // Animate content reveal
+      await new Promise<void>((resolve) => {
+        const speed = Math.max(10, Math.floor(1500 / Math.max(1, fullText.length))); // adaptive speed
+        let i = 0;
+        const interval = setInterval(() => {
+          i = Math.min(i + 2, fullText.length);
+          setMessages(prev => prev.map(m =>
+            m.id === typingMessageId ? { ...m, content: fullText.slice(0, i) } : m
+          ));
+          if (i >= fullText.length) {
+            clearInterval(interval);
+            // Mark done typing
+            setMessages(prev => prev.map(m =>
+              m.id === typingMessageId ? { ...m, isTyping: false } : m
+            ));
+            resolve();
+          }
+        }, speed);
+      });
     } catch (error) {
       console.error('Error getting AI response:', error);
       
@@ -251,17 +277,6 @@ export function ChatInterface() {
             <MessageBubble key={message.id} message={message} />
           ))}
           
-          {isLoading && (
-            <MessageBubble 
-              message={{
-                id: "typing",
-                content: "",
-                role: "assistant",
-                timestamp: new Date(),
-                isTyping: true
-              }} 
-            />
-          )}
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>

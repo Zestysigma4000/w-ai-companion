@@ -85,7 +85,16 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           `}
         >
           {message.isTyping ? (
-            <TypingIndicator />
+            message.content && message.content.length > 0 ? (
+              <div className="prose prose-sm max-w-none dark:prose-invert">
+                <p className="whitespace-pre-wrap text-sm leading-relaxed m-0">
+                  {message.content}
+                  <span className="ml-1 inline-block w-2 h-4 bg-foreground/60 align-baseline animate-pulse"></span>
+                </p>
+              </div>
+            ) : (
+              <TypingIndicator />
+            )
           ) : (
             <>
               <div className="prose prose-sm max-w-none dark:prose-invert">

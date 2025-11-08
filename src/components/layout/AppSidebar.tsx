@@ -99,7 +99,7 @@ export function AppSidebar() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="opacity-0 group-hover:opacity-100 h-6 w-6 p-0 hover:bg-destructive/20 hover:text-destructive"
+                      className="h-6 w-6 p-0 hover:bg-destructive/20 hover:text-destructive focus:opacity-100"
                       onClick={(e) => handleDeleteConversation(e, conversation.id)}
                     >
                       <Trash2 className="w-3 h-3" />
