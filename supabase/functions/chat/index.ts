@@ -266,43 +266,37 @@ You are helpful, knowledgeable, and can handle any coding or technical challenge
       }
     }
 
-    // Get Lovable AI API key (automatically configured)
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')
+    // Get API key
+    const apiKey = Deno.env.get('VITE_OLLAMA_CLOUD_API_KEY')
     
-    if (!lovableApiKey) {
-      throw new Error('LOVABLE_API_KEY is not configured')
+    if (!apiKey) {
+      throw new Error('VITE_OLLAMA_CLOUD_API_KEY is not configured')
     }
     
-    // Call Lovable AI Gateway
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Call Ollama Cloud API using OpenAI-compatible endpoint
+    const ollamaResponse = await fetch('https://ollama.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'deepseek-v3.1:671b-cloud',
         messages: messages,
+        temperature: 0.7,
+        max_tokens: 2000,
         stream: false
       }),
     })
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text()
-      console.error('Lovable AI API error:', aiResponse.status, errorText)
-      
-      if (aiResponse.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again in a moment.')
-      }
-      if (aiResponse.status === 402) {
-        throw new Error('Payment required. Please add credits to your account.')
-      }
-      
+    if (!ollamaResponse.ok) {
+      const errorText = await ollamaResponse.text()
+      console.error('Ollama API error:', ollamaResponse.status, errorText)
       throw new Error('Failed to get response from AI. Please try again.')
     }
 
-    const aiData = await aiResponse.json()
-    const assistantMessage = aiData.choices[0].message.content
+    const ollamaData = await ollamaResponse.json()
+    const assistantMessage = ollamaData.choices[0].message.content
 
     // Save assistant message
     const { error: assistantMessageError } = await supabaseClient
