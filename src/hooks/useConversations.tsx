@@ -14,6 +14,7 @@ interface ConversationsContextValue {
   setCurrentConversationId: (id: string | null) => void;
   createConversation: (title?: string) => Promise<Conversation | undefined>;
   deleteConversation: (conversationId: string) => Promise<void>;
+  deleteAllConversations: () => Promise<void>;
   refreshConversations: () => Promise<void>;
   loading: boolean;
 }
@@ -120,6 +121,44 @@ export function ConversationsProvider({ children }: { children: React.ReactNode 
     }
   };
 
+  const deleteAllConversations = async () => {
+    setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.error('No session found');
+        return;
+      }
+
+      // Delete all messages for this user first
+      const { error: msgErr } = await supabase
+        .from('messages')
+        .delete()
+        .eq('user_id', session.user.id);
+      if (msgErr) {
+        console.error('Error deleting messages:', msgErr);
+      }
+
+      // Then delete all conversations for this user
+      const { error: convErr } = await supabase
+        .from('conversations')
+        .delete()
+        .eq('user_id', session.user.id);
+      if (convErr) {
+        console.error('Error deleting conversations:', convErr);
+        throw new Error('Failed to delete conversations');
+      }
+
+      setConversations([]);
+      setCurrentConversationId(null);
+    } catch (error) {
+      console.error('Error in deleteAllConversations:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchConversations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -131,6 +170,7 @@ export function ConversationsProvider({ children }: { children: React.ReactNode 
     setCurrentConversationId,
     createConversation,
     deleteConversation,
+    deleteAllConversations,
     loading,
     refreshConversations: fetchConversations,
   }), [conversations, currentConversationId, loading]);

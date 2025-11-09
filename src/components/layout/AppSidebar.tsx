@@ -1,14 +1,25 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  MessageSquarePlus, 
-  History, 
-  Settings, 
+import {
+  MessageSquarePlus,
+  History,
+  Settings,
   Trash2,
   Bot,
   MoreHorizontal
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useConversations } from "@/hooks/useConversations";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -21,7 +32,8 @@ export function AppSidebar() {
     currentConversationId, 
     setCurrentConversationId,
     createConversation,
-    deleteConversation 
+    deleteConversation,
+    deleteAllConversations,
   } = useConversations();
 
   const handleNewConversation = async () => {
@@ -41,6 +53,16 @@ export function AppSidebar() {
     } catch (error) {
       console.error('Failed to delete conversation:', error);
       toast.error('Failed to delete conversation. Please try again.');
+    }
+  };
+
+  const handleClearAll = async () => {
+    try {
+      await deleteAllConversations();
+      toast.success('All conversations deleted');
+    } catch (error) {
+      console.error('Failed to delete all conversations:', error);
+      toast.error('Failed to delete all conversations. Please try again.');
     }
   };
 
@@ -72,10 +94,36 @@ export function AppSidebar() {
       <ScrollArea className="flex-1 px-4">
         {/* Recent Conversations */}
         <div className="py-4">
-          <h3 className="text-sm font-semibold text-sidebar-foreground mb-3 flex items-center gap-2">
-            <History className="w-4 h-4" />
-            Recent Conversations
-          </h3>
+          <div className="text-sm font-semibold text-sidebar-foreground mb-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <History className="w-4 h-4" />
+              <span>Recent Conversations</span>
+            </div>
+            {conversations.length > 0 && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7 px-2 hover:bg-destructive/10 hover:text-destructive">
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    Clear all
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete all conversations?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently remove all your chats. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleClearAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Delete all
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
           <div className="space-y-1">
             {conversations.length === 0 ? (
               <div className="text-sm text-muted-foreground p-2">
