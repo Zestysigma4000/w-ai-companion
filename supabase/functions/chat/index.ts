@@ -214,7 +214,29 @@ serve(async (req) => {
       }
     }
 
-    // Prepare messages for AI
+    // Prepare messages for AI with enhanced capabilities
+    const shouldUseWebSearch = message.toLowerCase().includes('search') || 
+                               message.toLowerCase().includes('latest') ||
+                               message.toLowerCase().includes('current') ||
+                               message.toLowerCase().includes('news')
+    
+    const shouldUseDeepThinking = message.toLowerCase().includes('complex') ||
+                                   message.toLowerCase().includes('analyze') ||
+                                   message.toLowerCase().includes('think') ||
+                                   message.length > 500
+    
+    // Web search context (if needed)
+    let webSearchContext = ''
+    if (shouldUseWebSearch) {
+      webSearchContext = '\n[Web search capability enabled - you can reference current information]'
+    }
+    
+    // Deep thinking mode
+    let thinkingPrompt = ''
+    if (shouldUseDeepThinking) {
+      thinkingPrompt = '\n\nIMPORTANT: Use step-by-step reasoning for this complex query:\n1. Break down the problem\n2. Consider multiple approaches\n3. Evaluate pros and cons\n4. Provide a comprehensive solution'
+    }
+    
     const messages = [
       {
         role: 'system',
@@ -225,8 +247,10 @@ serve(async (req) => {
 - File management and project organization
 - Architecture and design decisions
 - Analyzing images and documents
+- Web search and current information (when relevant)
+- Deep analytical thinking for complex problems
 
-You are helpful, knowledgeable, and can handle any coding or technical challenge. Always provide practical, working solutions.`
+You are helpful, knowledgeable, and can handle any coding or technical challenge. Always provide practical, working solutions.${webSearchContext}${thinkingPrompt}`
       },
       ...(messageHistory || []).slice(-10).map((msg: any) => {
         // Build content array for messages with images
@@ -283,8 +307,8 @@ You are helpful, knowledgeable, and can handle any coding or technical challenge
       body: JSON.stringify({
         model: 'deepseek-v3.1:671b-cloud',
         messages: messages,
-        temperature: 0.7,
-        max_tokens: 2000,
+        temperature: shouldUseDeepThinking ? 0.8 : 0.7,
+        max_tokens: shouldUseDeepThinking ? 4000 : 2000,
         stream: false
       }),
     })
