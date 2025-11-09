@@ -98,16 +98,22 @@ export function ConversationsProvider({ children }: { children: React.ReactNode 
         throw new Error('Failed to delete conversation');
       }
 
-      // Update local state immediately
+      // Optimistically update local state and pick a sensible next selection
       setConversations(prev => {
+        const idx = prev.findIndex(conv => conv.id === conversationId);
         const filtered = prev.filter(conv => conv.id !== conversationId);
+
+        if (currentConversationId === conversationId) {
+          // Prefer the next item at the same index, else previous, else first
+          const next = filtered[idx] || filtered[idx - 1] || filtered[0];
+          setCurrentConversationId(next ? next.id : null);
+        }
+
         return filtered;
       });
-      
-      // If we deleted the current conversation, clear it
-      if (currentConversationId === conversationId) {
-        setCurrentConversationId(null);
-      }
+
+      // Sync with backend to avoid drift (e.g., if other clients modified state)
+      await fetchConversations();
     } catch (error) {
       console.error('Error deleting conversation:', error);
       throw error;
