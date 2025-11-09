@@ -3,6 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Copy, ThumbsUp, ThumbsDown, User, Sparkles, File, Download } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface Message {
   id: string;
@@ -109,9 +112,38 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           ) : (
             <>
               <div className="prose prose-sm max-w-none dark:prose-invert">
-                <p className="whitespace-pre-wrap text-sm leading-relaxed m-0">
-                  {message.content}
-                </p>
+                {isUser ? (
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed m-0">
+                    {message.content}
+                  </p>
+                ) : (
+                  <div className="text-sm leading-relaxed">
+                    <ReactMarkdown
+                      components={{
+                        code({ node, inline, className, children, ...props }: any) {
+                          const match = /language-(\w+)/.exec(className || '');
+                          return !inline && match ? (
+                            <SyntaxHighlighter
+                              style={oneDark}
+                              language={match[1]}
+                              PreTag="div"
+                              className="rounded-md my-2"
+                              {...props}
+                            >
+                              {String(children).replace(/\n$/, '')}
+                            </SyntaxHighlighter>
+                          ) : (
+                            <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono" {...props}>
+                              {children}
+                            </code>
+                          );
+                        },
+                      }}
+                    >
+                      {message.content}
+                    </ReactMarkdown>
+                  </div>
+                )}
               </div>
               
               {/* Attachments */}

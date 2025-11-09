@@ -104,15 +104,10 @@ export function ChatInterface() {
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: inputValue,
-      role: "user",
-      timestamp: new Date(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
     const currentInput = inputValue;
+    const filesToUpload = [...attachedFiles];
+    
+    // Clear input and files immediately for better UX
     setInputValue("");
     setIsLoading(true);
     
@@ -128,10 +123,10 @@ export function ChatInterface() {
         throw new Error("You must be logged in to send messages");
       }
 
-      // Upload attached files if any
+      // Upload attached files FIRST before sending message
       let uploadedFiles: any[] = [];
-      if (attachedFiles.length > 0) {
-        for (const file of attachedFiles) {
+      if (filesToUpload.length > 0) {
+        for (const file of filesToUpload) {
           const fileExt = file.name.split('.').pop();
           const fileName = `${session.user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
           
@@ -151,8 +146,18 @@ export function ChatInterface() {
             size: file.size
           });
         }
-        setAttachedFiles([]);
       }
+
+      // Now add the user message with uploaded files
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        content: currentInput,
+        role: "user",
+        timestamp: new Date(),
+        attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined,
+      };
+
+      setMessages(prev => [...prev, userMessage]);
 
       // Call the AI backend via Supabase function
       const { data, error } = await supabase.functions.invoke('chat', {
@@ -246,6 +251,8 @@ export function ChatInterface() {
       setMessages(prev => [...prev, errorResponse]);
     } finally {
       setIsLoading(false);
+      // Clear attached files after message is sent (success or error)
+      setAttachedFiles([]);
     }
   };
 
