@@ -8,9 +8,6 @@ import { useConversations } from "@/hooks/useConversations";
 import { supabase } from "@/integrations/supabase/client";
 import { VoiceInput } from "../chat/VoiceInput";
 import { FileAttachment } from "../chat/FileAttachment";
-import { FileUploadDialog } from "../chat/FileUploadDialog";
-import { CloudStorageDialog } from "../chat/CloudStorageDialog";
-import { AIFeatures } from "../chat/AIFeatures";
 
 interface Message {
   id: string;
@@ -42,7 +39,6 @@ export function ChatInterface() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -132,12 +128,7 @@ export function ChatInterface() {
       let uploadedFiles: any[] = [];
       if (filesToUpload.length > 0) {
         setUploadingFiles(true);
-        setUploadProgress({ current: 0, total: filesToUpload.length });
-        
-        for (let i = 0; i < filesToUpload.length; i++) {
-          const file = filesToUpload[i];
-          setUploadProgress({ current: i + 1, total: filesToUpload.length });
-          
+        for (const file of filesToUpload) {
           const fileExt = file.name.split('.').pop();
           const fileName = `${session.user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
           
@@ -148,7 +139,6 @@ export function ChatInterface() {
           if (uploadError) {
             console.error('Error uploading file:', uploadError);
             setUploadingFiles(false);
-            setUploadProgress({ current: 0, total: 0 });
             throw new Error(`Failed to upload ${file.name}`);
           }
 
@@ -159,9 +149,7 @@ export function ChatInterface() {
             size: file.size
           });
         }
-        
         setUploadingFiles(false);
-        setUploadProgress({ current: 0, total: 0 });
         // Clear files immediately after successful upload
         setAttachedFiles([]);
       }
@@ -270,7 +258,6 @@ export function ChatInterface() {
     } finally {
       setIsLoading(false);
       setUploadingFiles(false);
-      setUploadProgress({ current: 0, total: 0 });
     }
   };
 
@@ -291,20 +278,8 @@ export function ChatInterface() {
     setAttachedFiles(files);
   };
 
-  const handleAIFeatureSelect = (featurePrompt: string) => {
-    if (featurePrompt) {
-      setInputValue(prev => featurePrompt + prev);
-    }
-  };
-
   return (
     <div className="flex flex-col h-full max-h-screen">
-      <FileUploadDialog 
-        open={uploadingFiles} 
-        filesCount={uploadProgress.total}
-        currentFile={uploadProgress.current}
-      />
-      
       {/* Messages Area */}
       <ScrollArea className="flex-1 p-6">
         <div className="max-w-4xl mx-auto space-y-6">
@@ -388,8 +363,6 @@ export function ChatInterface() {
           <div className="relative">
             <div className="flex items-end gap-3 bg-card border border-border rounded-xl p-4 shadow-card-custom">
               <FileAttachment onFileSelect={handleFileSelect} />
-              <CloudStorageDialog onFileSelect={handleFileSelect} />
-              <AIFeatures onFeatureSelect={handleAIFeatureSelect} />
               
               <Textarea
                 ref={textareaRef}
