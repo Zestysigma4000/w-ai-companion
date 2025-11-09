@@ -156,7 +156,46 @@ serve(async (req) => {
       .eq('conversation_id', conversation.id)
       .order('created_at', { ascending: true })
 
-    // Prepare messages for OpenAI
+    // Process image attachments for the current message
+    const imageContents: any[] = []
+    if (attachments.length > 0) {
+      for (const attachment of attachments) {
+        // Check if it's an image
+        if (attachment.type.startsWith('image/')) {
+          try {
+            // Download the image from storage
+            const { data: fileData, error: downloadError } = await supabaseClient.storage
+              .from('chat-attachments')
+              .download(attachment.path)
+            
+            if (downloadError) {
+              console.error('Error downloading image:', downloadError)
+              continue
+            }
+
+            // Convert to base64
+            const arrayBuffer = await fileData.arrayBuffer()
+            const base64 = btoa(
+              new Uint8Array(arrayBuffer).reduce(
+                (data, byte) => data + String.fromCharCode(byte),
+                ''
+              )
+            )
+
+            imageContents.push({
+              type: 'image_url',
+              image_url: {
+                url: `data:${attachment.type};base64,${base64}`
+              }
+            })
+          } catch (err) {
+            console.error('Error processing image:', err)
+          }
+        }
+      }
+    }
+
+    // Prepare messages for AI
     const messages = [
       {
         role: 'system',
@@ -166,14 +205,34 @@ serve(async (req) => {
 - Solving complex problems and providing detailed explanations
 - File management and project organization
 - Architecture and design decisions
+- Analyzing images and documents
 
 You are helpful, knowledgeable, and can handle any coding or technical challenge. Always provide practical, working solutions.`
       },
-      ...(messageHistory || []).slice(-10).map((msg: any) => ({
-        role: msg.role,
-        content: msg.content
-      }))
+      ...(messageHistory || []).slice(-10).map((msg: any) => {
+        // Build content array for messages with images
+        if (msg.attachments && msg.attachments.length > 0) {
+          const content = [{ type: 'text', text: msg.content }]
+          // Note: We only include images from the current message, not history
+          return { role: msg.role, content: msg.content }
+        }
+        return {
+          role: msg.role,
+          content: msg.content
+        }
+      })
     ]
+
+    // For the latest user message, if there are images, format it as multimodal
+    if (imageContents.length > 0) {
+      messages[messages.length - 1] = {
+        role: 'user',
+        content: [
+          { type: 'text', text: message },
+          ...imageContents
+        ]
+      }
+    }
 
     // Get API key
     const apiKey = Deno.env.get('VITE_OLLAMA_CLOUD_API_KEY')

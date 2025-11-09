@@ -32,6 +32,13 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const getFileUrl = (path: string) => {
+    const { data } = supabase.storage
+      .from('chat-attachments')
+      .getPublicUrl(path);
+    return data.publicUrl;
+  };
+
   const handleDownloadAttachment = async (path: string, name: string) => {
     try {
       const { data, error } = await supabase.storage
@@ -51,6 +58,10 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     } catch (error) {
       console.error('Error downloading file:', error);
     }
+  };
+
+  const isImageFile = (type: string) => {
+    return type.startsWith('image/');
   };
 
   const TypingIndicator = () => (
@@ -106,26 +117,54 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               {/* Attachments */}
               {message.attachments && message.attachments.length > 0 && (
                 <div className="mt-3 space-y-2">
-                  {message.attachments.map((attachment, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors"
-                    >
-                      <File className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                      <span className="text-xs flex-1 truncate">{attachment.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {(attachment.size / 1024).toFixed(1)}KB
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDownloadAttachment(attachment.path, attachment.name)}
-                        className="h-6 w-6 p-0"
+                  {message.attachments.map((attachment, index) => {
+                    const isImage = isImageFile(attachment.type);
+                    
+                    if (isImage) {
+                      return (
+                        <div key={index} className="rounded-lg overflow-hidden border border-border">
+                          <img
+                            src={getFileUrl(attachment.path)}
+                            alt={attachment.name}
+                            className="max-w-full h-auto max-h-96 object-contain"
+                          />
+                          <div className="flex items-center gap-2 p-2 bg-muted/30">
+                            <File className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-xs flex-1 truncate">{attachment.name}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownloadAttachment(attachment.path, attachment.name)}
+                              className="h-5 w-5 p-0"
+                            >
+                              <Download className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <div
+                        key={index}
+                        className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors"
                       >
-                        <Download className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  ))}
+                        <File className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <span className="text-xs flex-1 truncate">{attachment.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {(attachment.size / 1024).toFixed(1)}KB
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownloadAttachment(attachment.path, attachment.name)}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Download className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </>

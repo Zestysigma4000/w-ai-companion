@@ -264,8 +264,6 @@ export function ChatInterface() {
 
   const handleFileSelect = (files: File[]) => {
     setAttachedFiles(files);
-    // TODO: Implement file upload and processing
-    // This would require creating storage buckets and handling file uploads
   };
 
   return (
@@ -287,26 +285,58 @@ export function ChatInterface() {
           {/* Show attached files preview */}
           {attachedFiles.length > 0 && (
             <div className="mb-3 flex flex-wrap gap-2">
-              {attachedFiles.map((file, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg text-sm"
-                >
-                  <File className="w-4 h-4 text-muted-foreground" />
-                  <span className="truncate max-w-[200px]">{file.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {(file.size / 1024).toFixed(1)}KB
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setAttachedFiles(prev => prev.filter((_, i) => i !== index))}
-                    className="h-5 w-5 p-0 hover:bg-destructive/20 hover:text-destructive"
+              {attachedFiles.map((file, index) => {
+                const isImage = file.type.startsWith('image/');
+                
+                if (isImage) {
+                  const previewUrl = URL.createObjectURL(file);
+                  return (
+                    <div
+                      key={index}
+                      className="relative rounded-lg border border-border overflow-hidden"
+                    >
+                      <img
+                        src={previewUrl}
+                        alt={file.name}
+                        className="max-h-32 w-auto object-contain"
+                        onLoad={() => URL.revokeObjectURL(previewUrl)}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setAttachedFiles(prev => prev.filter((_, i) => i !== index))}
+                        className="absolute top-1 right-1 h-6 w-6 p-0 bg-background/80 hover:bg-destructive/80 hover:text-destructive-foreground"
+                      >
+                        ×
+                      </Button>
+                      <div className="px-2 py-1 bg-background/80 text-xs truncate max-w-[150px]">
+                        {file.name}
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg text-sm"
                   >
-                    ×
-                  </Button>
-                </div>
-              ))}
+                    <File className="w-4 h-4 text-muted-foreground" />
+                    <span className="truncate max-w-[200px]">{file.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {(file.size / 1024).toFixed(1)}KB
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setAttachedFiles(prev => prev.filter((_, i) => i !== index))}
+                      className="h-5 w-5 p-0 hover:bg-destructive/20 hover:text-destructive"
+                    >
+                      ×
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
           )}
           
