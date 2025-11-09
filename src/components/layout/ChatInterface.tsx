@@ -38,6 +38,7 @@ export function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -126,6 +127,7 @@ export function ChatInterface() {
       // Upload attached files FIRST before sending message
       let uploadedFiles: any[] = [];
       if (filesToUpload.length > 0) {
+        setUploadingFiles(true);
         for (const file of filesToUpload) {
           const fileExt = file.name.split('.').pop();
           const fileName = `${session.user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -136,6 +138,7 @@ export function ChatInterface() {
 
           if (uploadError) {
             console.error('Error uploading file:', uploadError);
+            setUploadingFiles(false);
             throw new Error(`Failed to upload ${file.name}`);
           }
 
@@ -146,6 +149,9 @@ export function ChatInterface() {
             size: file.size
           });
         }
+        setUploadingFiles(false);
+        // Clear files immediately after successful upload
+        setAttachedFiles([]);
       }
 
       // Now add the user message with uploaded files
@@ -251,8 +257,7 @@ export function ChatInterface() {
       setMessages(prev => [...prev, errorResponse]);
     } finally {
       setIsLoading(false);
-      // Clear attached files after message is sent (success or error)
-      setAttachedFiles([]);
+      setUploadingFiles(false);
     }
   };
 
@@ -289,8 +294,16 @@ export function ChatInterface() {
       {/* Input Area */}
       <div className="border-t border-border bg-background/80 backdrop-blur-lg">
         <div className="max-w-4xl mx-auto p-6">
+          {/* Upload progress indicator */}
+          {uploadingFiles && (
+            <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
+              <span>Uploading files...</span>
+            </div>
+          )}
+          
           {/* Show attached files preview */}
-          {attachedFiles.length > 0 && (
+          {attachedFiles.length > 0 && !uploadingFiles && (
             <div className="mb-3 flex flex-wrap gap-2">
               {attachedFiles.map((file, index) => {
                 const isImage = file.type.startsWith('image/');
@@ -366,7 +379,7 @@ export function ChatInterface() {
                 
                 <Button 
                   onClick={handleSendMessage}
-                  disabled={!inputValue.trim() || isLoading}
+                  disabled={!inputValue.trim() || isLoading || uploadingFiles}
                   className="bg-gradient-primary hover:opacity-90 text-white glow-primary transition-all duration-300"
                   size="sm"
                 >

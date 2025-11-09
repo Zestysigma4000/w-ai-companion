@@ -89,119 +89,188 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 
       {/* Message Content */}
       <div className={`flex-1 max-w-4xl ${isUser ? 'flex flex-col items-end' : ''}`}>
-        <div
-          className={`
-            relative px-4 py-3 rounded-2xl shadow-sm
-            ${isUser 
-              ? 'bg-primary text-primary-foreground ml-12' 
-              : 'bg-card border border-border mr-12 glass-card'
-            }
-          `}
-        >
-          {message.isTyping ? (
-            message.content && message.content.length > 0 ? (
-              <div className="prose prose-sm max-w-none dark:prose-invert">
-                <p className="whitespace-pre-wrap text-sm leading-relaxed m-0">
-                  {message.content}
-                  <span className="ml-1 inline-block w-2 h-4 bg-foreground/60 align-baseline animate-pulse"></span>
-                </p>
-              </div>
-            ) : (
-              <TypingIndicator />
-            )
-          ) : (
-            <>
-              <div className="prose prose-sm max-w-none dark:prose-invert">
-                {isUser ? (
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed m-0">
-                    {message.content}
-                  </p>
-                ) : (
-                  <div className="text-sm leading-relaxed">
-                    <ReactMarkdown
-                      components={{
-                        code({ node, inline, className, children, ...props }: any) {
-                          const match = /language-(\w+)/.exec(className || '');
-                          return !inline && match ? (
-                            <SyntaxHighlighter
-                              style={oneDark}
-                              language={match[1]}
-                              PreTag="div"
-                              className="rounded-md my-2"
-                              {...props}
-                            >
-                              {String(children).replace(/\n$/, '')}
-                            </SyntaxHighlighter>
-                          ) : (
-                            <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono" {...props}>
-                              {children}
-                            </code>
-                          );
-                        },
-                      }}
-                    >
-                      {message.content}
-                    </ReactMarkdown>
-                  </div>
-                )}
-              </div>
-              
-              {/* Attachments */}
-              {message.attachments && message.attachments.length > 0 && (
-                <div className="mt-3 space-y-2">
-                  {message.attachments.map((attachment, index) => {
-                    const isImage = isImageFile(attachment.type);
-                    
-                    if (isImage) {
-                      return (
-                        <div key={index} className="rounded-lg overflow-hidden border border-border">
-                          <img
-                            src={getFileUrl(attachment.path)}
-                            alt={attachment.name}
-                            className="max-w-full h-auto max-h-96 object-contain"
-                          />
-                          <div className="flex items-center gap-2 p-2 bg-muted/30">
-                            <File className="w-3 h-3 text-muted-foreground" />
-                            <span className="text-xs flex-1 truncate">{attachment.name}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDownloadAttachment(attachment.path, attachment.name)}
-                              className="h-5 w-5 p-0"
-                            >
-                              <Download className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    }
-                    
+        {isUser ? (
+          <div className="relative px-4 py-3 rounded-2xl shadow-sm bg-primary text-primary-foreground ml-12">
+            <div className="prose prose-sm max-w-none dark:prose-invert">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed m-0">
+                {message.content}
+              </p>
+            </div>
+            
+            {/* Attachments */}
+            {message.attachments && message.attachments.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {message.attachments.map((attachment, index) => {
+                  const isImage = isImageFile(attachment.type);
+                  
+                  if (isImage) {
                     return (
-                      <div
-                        key={index}
-                        className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors"
-                      >
-                        <File className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                        <span className="text-xs flex-1 truncate">{attachment.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {(attachment.size / 1024).toFixed(1)}KB
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDownloadAttachment(attachment.path, attachment.name)}
-                          className="h-6 w-6 p-0"
-                        >
-                          <Download className="w-3 h-3" />
-                        </Button>
+                      <div key={index} className="rounded-lg overflow-hidden border border-border">
+                        <img
+                          src={getFileUrl(attachment.path)}
+                          alt={attachment.name}
+                          className="max-w-full h-auto max-h-96 object-contain"
+                        />
+                        <div className="flex items-center gap-2 p-2 bg-muted/30">
+                          <File className="w-3 h-3 text-muted-foreground" />
+                          <span className="text-xs flex-1 truncate">{attachment.name}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadAttachment(attachment.path, attachment.name)}
+                            className="h-5 w-5 p-0"
+                          >
+                            <Download className="w-3 h-3" />
+                          </Button>
+                        </div>
                       </div>
                     );
-                  })}
+                  }
+                  
+                  return (
+                    <div
+                      key={index}
+                      className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors"
+                    >
+                      <File className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <span className="text-xs flex-1 truncate">{attachment.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {(attachment.size / 1024).toFixed(1)}KB
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDownloadAttachment(attachment.path, attachment.name)}
+                        className="h-6 w-6 p-0"
+                      >
+                        <Download className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {message.isTyping ? (
+              message.content && message.content.length > 0 ? (
+                <div className="text-sm leading-relaxed">
+                  <ReactMarkdown
+                    components={{
+                      code({ node, inline, className, children, ...props }: any) {
+                        const match = /language-(\w+)/.exec(className || '');
+                        return !inline && match ? (
+                          <SyntaxHighlighter
+                            style={oneDark}
+                            language={match[1]}
+                            PreTag="div"
+                            className="rounded-md my-2"
+                            {...props}
+                          >
+                            {String(children).replace(/\n$/, '')}
+                          </SyntaxHighlighter>
+                        ) : (
+                          <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono" {...props}>
+                            {children}
+                          </code>
+                        );
+                      },
+                    }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
+                  <span className="ml-1 inline-block w-2 h-4 bg-foreground/60 align-baseline animate-pulse"></span>
                 </div>
-              )}
-            </>
-          )}
-        </div>
+              ) : (
+                <TypingIndicator />
+              )
+            ) : (
+              <>
+                <div className="text-sm leading-relaxed">
+                  <ReactMarkdown
+                    components={{
+                      code({ node, inline, className, children, ...props }: any) {
+                        const match = /language-(\w+)/.exec(className || '');
+                        return !inline && match ? (
+                          <SyntaxHighlighter
+                            style={oneDark}
+                            language={match[1]}
+                            PreTag="div"
+                            className="rounded-md my-2"
+                            {...props}
+                          >
+                            {String(children).replace(/\n$/, '')}
+                          </SyntaxHighlighter>
+                        ) : (
+                          <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono" {...props}>
+                            {children}
+                          </code>
+                        );
+                      },
+                    }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
+                </div>
+                
+                {/* Attachments */}
+                {message.attachments && message.attachments.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {message.attachments.map((attachment, index) => {
+                      const isImage = isImageFile(attachment.type);
+                      
+                      if (isImage) {
+                        return (
+                          <div key={index} className="rounded-lg overflow-hidden border border-border">
+                            <img
+                              src={getFileUrl(attachment.path)}
+                              alt={attachment.name}
+                              className="max-w-full h-auto max-h-96 object-contain"
+                            />
+                            <div className="flex items-center gap-2 p-2 bg-muted/30">
+                              <File className="w-3 h-3 text-muted-foreground" />
+                              <span className="text-xs flex-1 truncate">{attachment.name}</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDownloadAttachment(attachment.path, attachment.name)}
+                                className="h-5 w-5 p-0"
+                              >
+                                <Download className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <div
+                          key={index}
+                          className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors"
+                        >
+                          <File className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <span className="text-xs flex-1 truncate">{attachment.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {(attachment.size / 1024).toFixed(1)}KB
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadAttachment(attachment.path, attachment.name)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <Download className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {/* Message Actions */}
         {!message.isTyping && (
