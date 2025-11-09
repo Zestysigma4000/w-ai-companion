@@ -156,23 +156,25 @@ serve(async (req) => {
       .eq('conversation_id', conversation.id)
       .order('created_at', { ascending: true })
 
-    // Process image attachments for the current message
+    // Process attachments for the current message
     const imageContents: any[] = []
+    let fileContextText = ''
+    
     if (attachments.length > 0) {
       for (const attachment of attachments) {
-        // Check if it's an image
-        if (attachment.type.startsWith('image/')) {
-          try {
-            // Download the image from storage
-            const { data: fileData, error: downloadError } = await supabaseClient.storage
-              .from('chat-attachments')
-              .download(attachment.path)
-            
-            if (downloadError) {
-              console.error('Error downloading image:', downloadError)
-              continue
-            }
+        try {
+          // Download the file from storage
+          const { data: fileData, error: downloadError } = await supabaseClient.storage
+            .from('chat-attachments')
+            .download(attachment.path)
+          
+          if (downloadError) {
+            console.error(`Error downloading ${attachment.name}:`, downloadError)
+            continue
+          }
 
+          // Check if it's an image
+          if (attachment.type.startsWith('image/')) {
             // Convert to base64
             const arrayBuffer = await fileData.arrayBuffer()
             const base64 = btoa(
@@ -188,9 +190,26 @@ serve(async (req) => {
                 url: `data:${attachment.type};base64,${base64}`
               }
             })
-          } catch (err) {
-            console.error('Error processing image:', err)
+          } 
+          // Handle text-based files (text, code, json, etc.)
+          else if (
+            attachment.type.startsWith('text/') ||
+            attachment.type === 'application/json' ||
+            attachment.type === 'application/javascript' ||
+            attachment.type === 'application/typescript' ||
+            attachment.name.match(/\.(txt|md|js|ts|tsx|jsx|py|java|cpp|c|h|css|html|xml|yaml|yml|json|csv)$/i)
+          ) {
+            // Read as text
+            const textContent = await fileData.text()
+            fileContextText += `\n\n--- File: ${attachment.name} (${attachment.type}) ---\n${textContent}\n--- End of ${attachment.name} ---\n`
           }
+          // For other file types, just mention them
+          else {
+            fileContextText += `\n[File attached: ${attachment.name} (${attachment.type}, ${(attachment.size / 1024).toFixed(1)}KB) - binary file]`
+          }
+        } catch (err) {
+          console.error(`Error processing ${attachment.name}:`, err)
+          fileContextText += `\n[Error reading file: ${attachment.name}]`
         }
       }
     }
@@ -223,14 +242,27 @@ You are helpful, knowledgeable, and can handle any coding or technical challenge
       })
     ]
 
-    // For the latest user message, if there are images, format it as multimodal
-    if (imageContents.length > 0) {
-      messages[messages.length - 1] = {
-        role: 'user',
-        content: [
-          { type: 'text', text: message },
-          ...imageContents
-        ]
+    // For the latest user message, include file context and images
+    if (imageContents.length > 0 || fileContextText) {
+      let fullMessage = message
+      if (fileContextText) {
+        fullMessage = `${message}\n\n${fileContextText}`
+      }
+      
+      if (imageContents.length > 0) {
+        messages[messages.length - 1] = {
+          role: 'user',
+          content: [
+            { type: 'text', text: fullMessage },
+            ...imageContents
+          ]
+        }
+      } else {
+        // Only text files, no images
+        messages[messages.length - 1] = {
+          role: 'user',
+          content: fullMessage
+        }
       }
     }
 
