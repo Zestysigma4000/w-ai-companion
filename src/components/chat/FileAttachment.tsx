@@ -15,9 +15,17 @@ export function FileAttachment({ onFileSelect }: FileAttachmentProps) {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+    let files = Array.from(e.target.files || []);
     
     if (files.length === 0) return;
+
+    // Block JSON secrets and config files for safety
+    const blocked = files.filter(f => f.type === 'application/json' || f.name.toLowerCase().endsWith('.json'));
+    if (blocked.length > 0) {
+      toast.error(`JSON files are not allowed: ${blocked.map(f => f.name).join(', ')}`);
+      files = files.filter(f => !blocked.includes(f));
+      if (files.length === 0) return;
+    }
 
     // Check file size (20MB max per file)
     const maxSize = 20 * 1024 * 1024;
@@ -59,7 +67,7 @@ export function FileAttachment({ onFileSelect }: FileAttachmentProps) {
         multiple
         className="hidden"
         onChange={handleFileChange}
-        accept="*/*"
+        accept="image/*,video/*,audio/*,text/plain,text/markdown,application/pdf,application/zip,application/x-zip-compressed,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
       />
     </>
   );

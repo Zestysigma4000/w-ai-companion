@@ -437,7 +437,7 @@ export function ChatInterface() {
           
           <div className="relative">
             {/* Tool toggles */}
-            <div className="flex gap-2 mb-3">
+            <div className="hidden">
               <Button
                 variant={webSearchEnabled ? "default" : "outline"}
                 size="sm"
@@ -460,6 +460,28 @@ export function ChatInterface() {
             
             <div className="flex items-end gap-3 bg-card border border-border rounded-xl p-4 shadow-card-custom">
               <FileAttachment onFileSelect={handleFileSelect} />
+              
+              <Button
+                variant={webSearchEnabled ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                aria-pressed={webSearchEnabled}
+                title="Web Search"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <Globe className="w-4 h-4" />
+              </Button>
+
+              <Button
+                variant={deepThinkEnabled ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setDeepThinkEnabled(!deepThinkEnabled)}
+                aria-pressed={deepThinkEnabled}
+                title="Deep Think"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <Brain className="w-4 h-4" />
+              </Button>
               
               <Textarea
                 ref={textareaRef}
