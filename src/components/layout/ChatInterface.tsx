@@ -179,6 +179,74 @@ export function ChatInterface() {
 
       if (error) {
         // Handle specific error codes
+        if (error.message?.includes('CONVERSATION_NOT_FOUND') || error.message?.includes('Conversation not found')) {
+          console.log('Conversation not found, resetting and retrying...');
+          setCurrentConversationId(null);
+          // Retry without conversation ID
+          const { data: retryData, error: retryError } = await supabase.functions.invoke('chat', {
+            body: {
+              message: currentInput,
+              conversationId: null,
+              attachments: uploadedFiles
+            },
+            headers: {
+              Authorization: `Bearer ${session.access_token}`
+            }
+          });
+          
+          if (retryError) {
+            throw retryError;
+          }
+          
+          // Update with new conversation ID
+          if (retryData.conversationId) {
+            setCurrentConversationId(retryData.conversationId);
+            await refreshConversations();
+          }
+          
+          // Continue with the response
+          const typingMessageId = (Date.now() + 1).toString();
+          const fullText: string = retryData.response || '';
+
+          setMessages(prev => [
+            ...prev,
+            {
+              id: typingMessageId,
+              content: '',
+              role: 'assistant',
+              timestamp: new Date(),
+              isTyping: true,
+            },
+          ]);
+
+          const elapsedTime = Date.now() - startTime;
+          const remainingTime = Math.max(0, minTypingDuration - elapsedTime);
+          if (remainingTime > 0) {
+            await new Promise(resolve => setTimeout(resolve, remainingTime));
+          }
+
+          await new Promise<void>((resolve) => {
+            const speed = Math.max(10, Math.floor(1500 / Math.max(1, fullText.length)));
+            let i = 0;
+            const interval = setInterval(() => {
+              i = Math.min(i + 2, fullText.length);
+              setMessages(prev => prev.map(m =>
+                m.id === typingMessageId ? { ...m, content: fullText.slice(0, i) } : m
+              ));
+              if (i >= fullText.length) {
+                clearInterval(interval);
+                setMessages(prev => prev.map(m =>
+                  m.id === typingMessageId ? { ...m, isTyping: false } : m
+                ));
+                resolve();
+              }
+            }, speed);
+          });
+          
+          setIsLoading(false);
+          return;
+        }
+        
         if (error.message?.includes('429') || error.message?.includes('Rate limit')) {
           throw new Error("Rate limit exceeded. Please try again in a moment.");
         }
