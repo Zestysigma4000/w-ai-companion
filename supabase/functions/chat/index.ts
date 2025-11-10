@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
@@ -226,7 +227,24 @@ serve(async (req) => {
 - Architecture and design decisions
 - Analyzing images and documents
 
-You are helpful, knowledgeable, and can handle any coding or technical challenge. Always provide practical, working solutions.`
+You have access to two special tools:
+1. web_search - Search the web for current information you don't have
+2. deep_think - Use enhanced reasoning for complex problems
+
+When you need to use a tool, respond with EXACTLY this format:
+<tool_call>
+<tool_name>web_search</tool_name>
+<query>search query</query>
+</tool_call>
+
+OR
+
+<tool_call>
+<tool_name>deep_think</tool_name>
+<problem>problem description</problem>
+</tool_call>
+
+After receiving tool results, incorporate them naturally into your response. Be helpful and provide practical, working solutions.`
       },
       ...(messageHistory || []).slice(-10).map((msg: any) => {
         // Build content array for messages with images
@@ -296,7 +314,83 @@ You are helpful, knowledgeable, and can handle any coding or technical challenge
     }
 
     const ollamaData = await ollamaResponse.json()
-    const assistantMessage = ollamaData.choices[0].message.content
+    let assistantMessage = ollamaData.choices[0].message.content
+
+    // Check for tool calls and execute them
+    const toolCallRegex = /<tool_call>\s*<tool_name>(web_search|deep_think)<\/tool_name>\s*(?:<query>([\s\S]*?)<\/query>|<problem>([\s\S]*?)<\/problem>)\s*<\/tool_call>/
+    const toolMatch = assistantMessage.match(toolCallRegex)
+    
+    if (toolMatch) {
+      const toolName = toolMatch[1]
+      const toolInput = (toolMatch[2] || toolMatch[3]).trim()
+      
+      console.log('Tool call detected:', toolName, 'Input:', toolInput)
+      
+      let toolResult = ''
+      
+      if (toolName === 'web_search') {
+        // Perform web search
+        try {
+          const searchResponse = await fetch('https://api.lovable.app/api/search', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              query: toolInput,
+              numResults: 5
+            })
+          })
+          
+          if (searchResponse.ok) {
+            const searchData = await searchResponse.json()
+            toolResult = `Web search results for "${toolInput}":\n\n${searchData.results.map((r: any, i: number) => 
+              `${i + 1}. ${r.title}\n${r.description}\nSource: ${r.url}\n`
+            ).join('\n')}`
+          } else {
+            toolResult = 'Web search temporarily unavailable.'
+          }
+        } catch (e) {
+          console.error('Web search error:', e)
+          toolResult = 'Web search encountered an error.'
+        }
+      } else if (toolName === 'deep_think') {
+        // Enhanced reasoning mode
+        toolResult = `[Deep Thinking Mode]\nAnalyze this problem step by step:\n${toolInput}\n\nBreak down:\n1. Problem understanding\n2. Key constraints\n3. Possible approaches\n4. Best solution\n5. Reasoning`
+      }
+      
+      // Get final response with tool results
+      messages.push({
+        role: 'assistant',
+        content: assistantMessage
+      })
+      
+      messages.push({
+        role: 'user',
+        content: `Tool result:\n${toolResult}\n\nProvide your final answer using this information.`
+      })
+      
+      const finalResponse = await fetch('https://ollama.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'deepseek-v3.1:671b-cloud',
+          messages: messages,
+          temperature: 0.7,
+          max_tokens: 2000,
+          stream: false
+        }),
+      })
+      
+      if (finalResponse.ok) {
+        const finalData = await finalResponse.json()
+        assistantMessage = finalData.choices[0].message.content
+        console.log('Final response with tool:', assistantMessage)
+      }
+    }
 
     // Save assistant message
     const { error: assistantMessageError } = await supabaseClient

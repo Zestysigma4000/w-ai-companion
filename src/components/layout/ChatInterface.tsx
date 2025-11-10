@@ -8,7 +8,6 @@ import { useConversations } from "@/hooks/useConversations";
 import { supabase } from "@/integrations/supabase/client";
 import { VoiceInput } from "../chat/VoiceInput";
 import { FileAttachment } from "../chat/FileAttachment";
-import { GoogleDrivePicker } from "../chat/GoogleDrivePicker";
 
 interface Message {
   id: string;
@@ -364,7 +363,6 @@ export function ChatInterface() {
           <div className="relative">
             <div className="flex items-end gap-3 bg-card border border-border rounded-xl p-4 shadow-card-custom">
               <FileAttachment onFileSelect={handleFileSelect} />
-              <GoogleDrivePicker onFilesSelected={handleFileSelect} />
               
               <Textarea
                 ref={textareaRef}
