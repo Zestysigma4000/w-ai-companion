@@ -9,6 +9,7 @@ import {
   Bot,
   MoreHorizontal
 } from "lucide-react";
+import { ThemeSwitcher } from "../ThemeSwitcher";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -176,7 +177,8 @@ export function AppSidebar() {
       </ScrollArea>
 
       {/* Bottom Settings */}
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="p-4 border-t border-sidebar-border space-y-2">
+        <ThemeSwitcher />
         <Button 
           variant="ghost" 
           className="w-full justify-start hover:bg-sidebar-accent"

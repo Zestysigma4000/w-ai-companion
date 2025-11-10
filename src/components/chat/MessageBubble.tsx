@@ -4,8 +4,7 @@ import { Copy, ThumbsUp, ThumbsDown, User, Sparkles, File, Download } from "luci
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { CodeBlock } from "./CodeBlock";
 
 interface Message {
   id: string;
@@ -161,15 +160,9 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                       code({ node, inline, className, children, ...props }: any) {
                         const match = /language-(\w+)/.exec(className || '');
                         return !inline && match ? (
-                          <SyntaxHighlighter
-                            style={oneDark}
-                            language={match[1]}
-                            PreTag="div"
-                            className="rounded-md my-2"
-                            {...props}
-                          >
+                          <CodeBlock language={match[1]}>
                             {String(children).replace(/\n$/, '')}
-                          </SyntaxHighlighter>
+                          </CodeBlock>
                         ) : (
                           <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono" {...props}>
                             {children}
@@ -193,15 +186,9 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                       code({ node, inline, className, children, ...props }: any) {
                         const match = /language-(\w+)/.exec(className || '');
                         return !inline && match ? (
-                          <SyntaxHighlighter
-                            style={oneDark}
-                            language={match[1]}
-                            PreTag="div"
-                            className="rounded-md my-2"
-                            {...props}
-                          >
+                          <CodeBlock language={match[1]}>
                             {String(children).replace(/\n$/, '')}
-                          </SyntaxHighlighter>
+                          </CodeBlock>
                         ) : (
                           <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono" {...props}>
                             {children}
