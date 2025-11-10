@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "../chat/MessageBubble";
-import { Send, File } from "lucide-react";
+import { Send, File, Globe, Brain } from "lucide-react";
 import { useConversations } from "@/hooks/useConversations";
 import { supabase } from "@/integrations/supabase/client";
 import { VoiceInput } from "../chat/VoiceInput";
@@ -39,6 +39,8 @@ export function ChatInterface() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [deepThinkEnabled, setDeepThinkEnabled] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -170,7 +172,9 @@ export function ChatInterface() {
         body: {
           message: currentInput,
           conversationId: currentConversationId || null,
-          attachments: uploadedFiles
+          attachments: uploadedFiles,
+          webSearchEnabled,
+          deepThinkEnabled
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`
@@ -183,12 +187,15 @@ export function ChatInterface() {
           console.log('Conversation not found, resetting and retrying...');
           setCurrentConversationId(null);
           // Retry without conversation ID
+          const retryBody = {
+            message: currentInput,
+            conversationId: null,
+            attachments: uploadedFiles,
+            webSearchEnabled,
+            deepThinkEnabled
+          };
           const { data: retryData, error: retryError } = await supabase.functions.invoke('chat', {
-            body: {
-              message: currentInput,
-              conversationId: null,
-              attachments: uploadedFiles
-            },
+            body: retryBody,
             headers: {
               Authorization: `Bearer ${session.access_token}`
             }
@@ -429,6 +436,28 @@ export function ChatInterface() {
           )}
           
           <div className="relative">
+            {/* Tool toggles */}
+            <div className="flex gap-2 mb-3">
+              <Button
+                variant={webSearchEnabled ? "default" : "outline"}
+                size="sm"
+                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                className="flex items-center gap-2"
+              >
+                <Globe className="w-4 h-4" />
+                Web Search
+              </Button>
+              <Button
+                variant={deepThinkEnabled ? "default" : "outline"}
+                size="sm"
+                onClick={() => setDeepThinkEnabled(!deepThinkEnabled)}
+                className="flex items-center gap-2"
+              >
+                <Brain className="w-4 h-4" />
+                Deep Think
+              </Button>
+            </div>
+            
             <div className="flex items-end gap-3 bg-card border border-border rounded-xl p-4 shadow-card-custom">
               <FileAttachment onFileSelect={handleFileSelect} />
               

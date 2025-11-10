@@ -20,7 +20,9 @@ const chatRequestSchema = z.object({
     path: z.string(),
     type: z.string(),
     size: z.number()
-  })).optional()
+  })).optional(),
+  webSearchEnabled: z.boolean().optional().default(false),
+  deepThinkEnabled: z.boolean().optional().default(false)
 })
 
 serve(async (req) => {
@@ -58,7 +60,7 @@ serve(async (req) => {
       )
     }
     
-    const { message, conversationId, attachments = [] } = validationResult.data
+    const { message, conversationId, attachments = [], webSearchEnabled, deepThinkEnabled } = validationResult.data
     
     // Initialize Supabase client with user's token
     const supabaseClient = createClient(
@@ -216,6 +218,20 @@ serve(async (req) => {
     }
 
     // Prepare messages for AI
+    const toolsDescription = (webSearchEnabled || deepThinkEnabled) 
+      ? `\n\nYou have access to special tools:
+${webSearchEnabled ? '1. web_search - Search the web for current information you don\'t have' : ''}
+${deepThinkEnabled ? '2. deep_think - Use enhanced reasoning for complex problems' : ''}
+
+When you need to use a tool, respond with EXACTLY this format:
+<tool_call>
+<tool_name>${webSearchEnabled ? 'web_search' : 'deep_think'}</tool_name>
+${webSearchEnabled ? '<query>search query</query>' : '<problem>problem description</problem>'}
+</tool_call>
+
+After receiving tool results, incorporate them naturally into your response.`
+      : '';
+    
     const messages = [
       {
         role: 'system',
@@ -225,28 +241,11 @@ serve(async (req) => {
 - Solving complex problems and providing detailed explanations
 - File management and project organization
 - Architecture and design decisions
-- Analyzing images and documents
+- Analyzing images and documents${toolsDescription}
 
-You have access to two special tools:
-1. web_search - Search the web for current information you don't have
-2. deep_think - Use enhanced reasoning for complex problems
-
-When you need to use a tool, respond with EXACTLY this format:
-<tool_call>
-<tool_name>web_search</tool_name>
-<query>search query</query>
-</tool_call>
-
-OR
-
-<tool_call>
-<tool_name>deep_think</tool_name>
-<problem>problem description</problem>
-</tool_call>
-
-After receiving tool results, incorporate them naturally into your response. Be helpful and provide practical, working solutions.`
+Be helpful and provide practical, working solutions.`
       },
-      ...(messageHistory || []).slice(-10).map((msg: any) => {
+      ...(messageHistory || []).map((msg: any) => {
         // Build content array for messages with images
         if (msg.attachments && msg.attachments.length > 0) {
           const content = [{ type: 'text', text: msg.content }]
@@ -316,79 +315,84 @@ After receiving tool results, incorporate them naturally into your response. Be 
     const ollamaData = await ollamaResponse.json()
     let assistantMessage = ollamaData.choices[0].message.content
 
-    // Check for tool calls and execute them
-    const toolCallRegex = /<tool_call>\s*<tool_name>(web_search|deep_think)<\/tool_name>\s*(?:<query>([\s\S]*?)<\/query>|<problem>([\s\S]*?)<\/problem>)\s*<\/tool_call>/
-    const toolMatch = assistantMessage.match(toolCallRegex)
-    
-    if (toolMatch) {
-      const toolName = toolMatch[1]
-      const toolInput = (toolMatch[2] || toolMatch[3]).trim()
+    // Check for tool calls and execute them only if tools are enabled
+    if (webSearchEnabled || deepThinkEnabled) {
+      const toolCallRegex = /<tool_call>\s*<tool_name>(web_search|deep_think)<\/tool_name>\s*(?:<query>([\s\S]*?)<\/query>|<problem>([\s\S]*?)<\/problem>)\s*<\/tool_call>/
+      const toolMatch = assistantMessage.match(toolCallRegex)
       
-      console.log('Tool call detected:', toolName, 'Input:', toolInput)
-      
-      let toolResult = ''
-      
-      if (toolName === 'web_search') {
-        // Perform web search
-        try {
-          const searchResponse = await fetch('https://api.lovable.app/api/search', {
+      if (toolMatch) {
+        const toolName = toolMatch[1]
+        const toolInput = (toolMatch[2] || toolMatch[3]).trim()
+        
+        // Check if the requested tool is enabled
+        if ((toolName === 'web_search' && webSearchEnabled) || (toolName === 'deep_think' && deepThinkEnabled)) {
+          console.log('Tool call detected:', toolName, 'Input:', toolInput)
+          
+          let toolResult = ''
+          
+          if (toolName === 'web_search') {
+            // Perform web search
+            try {
+              const searchResponse = await fetch('https://api.lovable.app/api/search', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  query: toolInput,
+                  numResults: 5
+                })
+              })
+              
+              if (searchResponse.ok) {
+                const searchData = await searchResponse.json()
+                toolResult = `Web search results for "${toolInput}":\n\n${searchData.results.map((r: any, i: number) => 
+                  `${i + 1}. ${r.title}\n${r.description}\nSource: ${r.url}\n`
+                ).join('\n')}`
+              } else {
+                toolResult = 'Web search temporarily unavailable.'
+              }
+            } catch (e) {
+              console.error('Web search error:', e)
+              toolResult = 'Web search encountered an error.'
+            }
+          } else if (toolName === 'deep_think') {
+            // Enhanced reasoning mode
+            toolResult = `[Deep Thinking Mode]\nAnalyze this problem step by step:\n${toolInput}\n\nBreak down:\n1. Problem understanding\n2. Key constraints\n3. Possible approaches\n4. Best solution\n5. Reasoning`
+          }
+          
+          // Get final response with tool results
+          messages.push({
+            role: 'assistant',
+            content: assistantMessage
+          })
+          
+          messages.push({
+            role: 'user',
+            content: `Tool result:\n${toolResult}\n\nProvide your final answer using this information.`
+          })
+          
+          const finalResponse = await fetch('https://ollama.com/v1/chat/completions', {
             method: 'POST',
             headers: {
+              'Authorization': `Bearer ${apiKey}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              query: toolInput,
-              numResults: 5
-            })
+              model: 'deepseek-v3.1:671b-cloud',
+              messages: messages,
+              temperature: 0.7,
+              max_tokens: 2000,
+              stream: false
+            }),
           })
           
-          if (searchResponse.ok) {
-            const searchData = await searchResponse.json()
-            toolResult = `Web search results for "${toolInput}":\n\n${searchData.results.map((r: any, i: number) => 
-              `${i + 1}. ${r.title}\n${r.description}\nSource: ${r.url}\n`
-            ).join('\n')}`
-          } else {
-            toolResult = 'Web search temporarily unavailable.'
+          if (finalResponse.ok) {
+            const finalData = await finalResponse.json()
+            assistantMessage = finalData.choices[0].message.content
+            console.log('Final response with tool:', assistantMessage)
           }
-        } catch (e) {
-          console.error('Web search error:', e)
-          toolResult = 'Web search encountered an error.'
         }
-      } else if (toolName === 'deep_think') {
-        // Enhanced reasoning mode
-        toolResult = `[Deep Thinking Mode]\nAnalyze this problem step by step:\n${toolInput}\n\nBreak down:\n1. Problem understanding\n2. Key constraints\n3. Possible approaches\n4. Best solution\n5. Reasoning`
-      }
-      
-      // Get final response with tool results
-      messages.push({
-        role: 'assistant',
-        content: assistantMessage
-      })
-      
-      messages.push({
-        role: 'user',
-        content: `Tool result:\n${toolResult}\n\nProvide your final answer using this information.`
-      })
-      
-      const finalResponse = await fetch('https://ollama.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'deepseek-v3.1:671b-cloud',
-          messages: messages,
-          temperature: 0.7,
-          max_tokens: 2000,
-          stream: false
-        }),
-      })
-      
-      if (finalResponse.ok) {
-        const finalData = await finalResponse.json()
-        assistantMessage = finalData.choices[0].message.content
-        console.log('Final response with tool:', assistantMessage)
       }
     }
 
