@@ -311,7 +311,8 @@ Be helpful and provide practical, working solutions. Remember: ALWAYS respond in
     
     // Determine which model to use based on whether images are present
     const hasImages = imageContents.length > 0
-    const modelToUse = hasImages ? 'qwen3-vl:2b-cloud' : 'deepseek-v3.1:671b-cloud'
+    // Note: Only 235b-cloud variant is available for vision on Ollama Cloud
+    const modelToUse = hasImages ? 'qwen3-vl:235b-cloud' : 'deepseek-v3.1:671b-cloud'
     
     // Call Ollama Cloud API using OpenAI-compatible endpoint
     const ollamaResponse = await fetch('https://ollama.com/v1/chat/completions', {
