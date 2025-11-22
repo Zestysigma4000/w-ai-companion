@@ -230,10 +230,10 @@ export function ChatInterface() {
           }
 
           await new Promise<void>((resolve) => {
-            const speed = Math.max(10, Math.floor(1500 / Math.max(1, fullText.length)));
+            const speed = Math.max(15, Math.floor(3000 / Math.max(1, fullText.length))); // slower speed
             let i = 0;
             const interval = setInterval(() => {
-              i = Math.min(i + 2, fullText.length);
+              i = Math.min(i + 1, fullText.length); // 1 character at a time
               setMessages(prev => prev.map(m =>
                 m.id === typingMessageId ? { ...m, content: fullText.slice(0, i) } : m
               ));
@@ -291,10 +291,10 @@ export function ChatInterface() {
 
       // Animate content reveal
       await new Promise<void>((resolve) => {
-        const speed = Math.max(10, Math.floor(1500 / Math.max(1, fullText.length))); // adaptive speed
+        const speed = Math.max(15, Math.floor(3000 / Math.max(1, fullText.length))); // slower speed
         let i = 0;
         const interval = setInterval(() => {
-          i = Math.min(i + 2, fullText.length);
+          i = Math.min(i + 1, fullText.length); // 1 character at a time
           setMessages(prev => prev.map(m =>
             m.id === typingMessageId ? { ...m, content: fullText.slice(0, i) } : m
           ));
@@ -358,6 +358,23 @@ export function ChatInterface() {
           {messages.map((message) => (
             <MessageBubble key={message.id} message={message} />
           ))}
+          
+          {/* Thinking animation */}
+          {isLoading && messages[messages.length - 1]?.role === "user" && (
+            <div className="flex items-start gap-3 animate-fade-in">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Brain className="w-4 h-4 text-primary" />
+              </div>
+              <div className="bg-card rounded-2xl p-4 max-w-[80%] border border-border">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <span className="text-sm text-muted-foreground ml-2">Thinking...</span>
+                </div>
+              </div>
+            </div>
+          )}
           
           <div ref={messagesEndRef} />
         </div>
