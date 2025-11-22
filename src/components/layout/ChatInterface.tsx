@@ -39,8 +39,10 @@ export function ChatInterface() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [deepThinkEnabled, setDeepThinkEnabled] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [dragCounter, setDragCounter] = useState(0);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -130,7 +132,10 @@ export function ChatInterface() {
       let uploadedFiles: any[] = [];
       if (filesToUpload.length > 0) {
         setUploadingFiles(true);
-        for (const file of filesToUpload) {
+        setUploadProgress(0);
+        
+        for (let i = 0; i < filesToUpload.length; i++) {
+          const file = filesToUpload[i];
           const fileExt = file.name.split('.').pop();
           const fileName = `${session.user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
           
@@ -141,6 +146,7 @@ export function ChatInterface() {
           if (uploadError) {
             console.error('Error uploading file:', uploadError);
             setUploadingFiles(false);
+            setUploadProgress(0);
             throw new Error(`Failed to upload ${file.name}`);
           }
 
@@ -150,8 +156,13 @@ export function ChatInterface() {
             type: file.type,
             size: file.size
           });
+          
+          // Update progress
+          setUploadProgress(Math.round(((i + 1) / filesToUpload.length) * 100));
         }
+        
         setUploadingFiles(false);
+        setUploadProgress(0);
         // Clear files immediately after successful upload
         setAttachedFiles([]);
       }
@@ -351,22 +362,37 @@ export function ChatInterface() {
     setAttachedFiles(files);
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(true);
+    setDragCounter(prev => prev + 1);
+    if (!isDragging) {
+      setIsDragging(true);
+    }
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(false);
+    setDragCounter(prev => {
+      const newCount = prev - 1;
+      if (newCount === 0) {
+        setIsDragging(false);
+      }
+      return newCount;
+    });
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
+    setDragCounter(0);
 
     const files = Array.from(e.dataTransfer.files);
     if (files.length === 0) return;
@@ -390,6 +416,7 @@ export function ChatInterface() {
   return (
     <div 
       className="flex flex-col h-full max-h-screen"
+      onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -438,9 +465,17 @@ export function ChatInterface() {
         <div className="max-w-4xl mx-auto p-6">
           {/* Upload progress indicator */}
           {uploadingFiles && (
-            <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
-              <span>Uploading files...</span>
+            <div className="mb-3 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Uploading files...</span>
+                <span className="text-primary font-medium">{uploadProgress}%</span>
+              </div>
+              <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-primary transition-all duration-300 ease-out"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
             </div>
           )}
           

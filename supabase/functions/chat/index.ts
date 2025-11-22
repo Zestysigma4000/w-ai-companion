@@ -307,6 +307,10 @@ Be helpful and provide practical, working solutions.`
       throw new Error('VITE_OLLAMA_CLOUD_API_KEY is not configured')
     }
     
+    // Determine which model to use based on whether images are present
+    const hasImages = imageContents.length > 0
+    const modelToUse = hasImages ? 'llama3.2-vision' : 'deepseek-v3.1:671b-cloud'
+    
     // Call Ollama Cloud API using OpenAI-compatible endpoint
     const ollamaResponse = await fetch('https://ollama.com/v1/chat/completions', {
       method: 'POST',
@@ -315,7 +319,7 @@ Be helpful and provide practical, working solutions.`
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'deepseek-v3.1:671b-cloud',
+        model: modelToUse,
         messages: messages,
         temperature: 0.7,
         max_tokens: 2000,
@@ -362,7 +366,7 @@ Be helpful and provide practical, working solutions.`
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'deepseek-v3.1:671b-cloud',
+            model: modelToUse,
             messages: messages,
             temperature: 0.7,
             max_tokens: 2000,
