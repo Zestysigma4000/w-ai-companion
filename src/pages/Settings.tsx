@@ -17,6 +17,11 @@ const Settings = () => {
   const [maxTokens, setMaxTokens] = useState([2000]);
   const [autoSave, setAutoSave] = useState(true);
   const [darkMode, setDarkMode] = useState(true);
+  const [notifications, setNotifications] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [language, setLanguage] = useState("en");
+  const [fontSize, setFontSize] = useState("medium");
+  const [compactMode, setCompactMode] = useState(false);
 
   const handleSave = () => {
     toast.success("Settings saved successfully!");
@@ -24,7 +29,7 @@ const Settings = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto p-4 md:p-6">
         <div className="mb-6">
           <Button 
             variant="ghost" 
@@ -41,10 +46,11 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue="general" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="ai">AI Settings</TabsTrigger>
             <TabsTrigger value="appearance">Appearance</TabsTrigger>
+            <TabsTrigger value="privacy">Privacy</TabsTrigger>
           </TabsList>
 
           <TabsContent value="general" className="space-y-4">
@@ -67,6 +73,49 @@ const Settings = () => {
                     checked={autoSave}
                     onCheckedChange={setAutoSave}
                   />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Sound effects</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Play sounds for notifications
+                    </p>
+                  </div>
+                  <Switch
+                    checked={soundEnabled}
+                    onCheckedChange={setSoundEnabled}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Desktop notifications</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Get notified when AI responds
+                    </p>
+                  </div>
+                  <Switch
+                    checked={notifications}
+                    onCheckedChange={setNotifications}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Language</Label>
+                  <Select value={language} onValueChange={setLanguage}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="es">Español</SelectItem>
+                      <SelectItem value="fr">Français</SelectItem>
+                      <SelectItem value="de">Deutsch</SelectItem>
+                      <SelectItem value="zh">中文</SelectItem>
+                      <SelectItem value="ja">日本語</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -163,9 +212,22 @@ const Settings = () => {
                   />
                 </div>
 
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Compact mode</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Reduce spacing for more content
+                    </p>
+                  </div>
+                  <Switch
+                    checked={compactMode}
+                    onCheckedChange={setCompactMode}
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <Label>Font Size</Label>
-                  <Select defaultValue="medium">
+                  <Select value={fontSize} onValueChange={setFontSize}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -173,8 +235,69 @@ const Settings = () => {
                       <SelectItem value="small">Small</SelectItem>
                       <SelectItem value="medium">Medium</SelectItem>
                       <SelectItem value="large">Large</SelectItem>
+                      <SelectItem value="xlarge">Extra Large</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Theme</Label>
+                  <Select defaultValue="dark-blue">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dark-blue">ChatGPT Dark</SelectItem>
+                      <SelectItem value="light">Light</SelectItem>
+                      <SelectItem value="dark-purple">Dark Purple</SelectItem>
+                      <SelectItem value="ocean">Ocean</SelectItem>
+                      <SelectItem value="forest">Forest</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="privacy" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Privacy & Data</CardTitle>
+                <CardDescription>
+                  Control your data and privacy settings
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Share usage data</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Help improve W ai by sharing anonymous usage data
+                    </p>
+                  </div>
+                  <Switch defaultChecked={false} />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Save conversation history</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Store conversations on the server
+                    </p>
+                  </div>
+                  <Switch defaultChecked={true} />
+                </div>
+
+                <div className="pt-4 border-t border-border">
+                  <h4 className="text-sm font-medium mb-2">Data Management</h4>
+                  <div className="space-y-2">
+                    <Button variant="outline" className="w-full justify-start">
+                      Export all conversations
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start text-destructive hover:text-destructive">
+                      Delete all conversations
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

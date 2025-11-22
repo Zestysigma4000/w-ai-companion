@@ -5,9 +5,10 @@ import { toast } from "sonner";
 
 interface VoiceInputProps {
   onTranscript: (text: string) => void;
+  onComplete?: () => void;
 }
 
-export function VoiceInput({ onTranscript }: VoiceInputProps) {
+export function VoiceInput({ onTranscript, onComplete }: VoiceInputProps) {
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
 
@@ -37,6 +38,13 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
         const transcript = event.results[0][0].transcript;
         onTranscript(transcript);
         toast.success("Voice input captured");
+        
+        // Auto-send after a short delay
+        setTimeout(() => {
+          if (onComplete) {
+            onComplete();
+          }
+        }, 300);
       };
 
       recognition.onerror = (event: any) => {

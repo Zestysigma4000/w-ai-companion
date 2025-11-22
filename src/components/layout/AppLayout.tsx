@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { ConversationsProvider } from "@/hooks/useConversations";
 
 export function AppLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Start closed on mobile
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -28,7 +28,7 @@ export function AppLayout() {
       <ConversationsProvider>
         <div className="min-h-screen w-full flex bg-background">
           {/* Main Header */}
-          <div className="fixed top-0 left-0 right-0 z-50 h-14 bg-background/80 backdrop-blur-lg border-b border-border flex items-center px-4 gap-3">
+          <div className="fixed top-0 left-0 right-0 z-50 h-14 bg-background/80 backdrop-blur-lg border-b border-border flex items-center px-3 md:px-4 gap-2 md:gap-3">
             <Button
               variant="ghost"
               size="sm"
@@ -39,14 +39,14 @@ export function AppLayout() {
             </Button>
             
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center glow-primary">
-                <Sparkles className="w-4 h-4 text-white" />
+              <div className="w-7 h-7 md:w-8 md:h-8 bg-gradient-primary rounded-lg flex items-center justify-center glow-primary">
+                <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-white" />
               </div>
-              <h1 className="text-xl font-bold gradient-text">W ai</h1>
+              <h1 className="text-lg md:text-xl font-bold gradient-text">W ai</h1>
             </div>
   
             <div className="ml-auto flex items-center gap-2">
-              <div className="text-xs text-muted-foreground">
+              <div className="hidden sm:block text-xs text-muted-foreground">
                 Full capabilities • No limits
               </div>
               <Button
@@ -61,11 +61,23 @@ export function AppLayout() {
             </div>
           </div>
   
-          {/* Sidebar */}
-          {sidebarOpen && <AppSidebar />}
+          {/* Sidebar - Overlay on mobile, fixed on desktop */}
+          {sidebarOpen && (
+            <>
+              {/* Mobile overlay backdrop */}
+              <div 
+                className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                onClick={() => setSidebarOpen(false)}
+              />
+              {/* Sidebar */}
+              <div className="fixed left-0 top-14 bottom-0 z-40 md:relative md:top-0">
+                <AppSidebar />
+              </div>
+            </>
+          )}
           
           {/* Main Content Area */}
-          <main className={`flex-1 pt-14 transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-0'}`}>
+          <main className="flex-1 pt-14 transition-all duration-300">
             <ChatInterface />
           </main>
         </div>

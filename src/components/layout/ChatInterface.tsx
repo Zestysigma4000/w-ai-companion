@@ -321,6 +321,13 @@ export function ChatInterface() {
     }
   };
 
+  const handleVoiceComplete = () => {
+    // Auto-send the message after voice input completes
+    if (inputValue.trim()) {
+      handleSendMessage();
+    }
+  };
+
   const handleFileSelect = (files: File[]) => {
     setAttachedFiles(files);
   };
@@ -396,8 +403,8 @@ export function ChatInterface() {
       )}
       
       {/* Messages Area */}
-      <ScrollArea className="flex-1 p-6">
-        <div className="max-w-4xl mx-auto space-y-6">
+      <ScrollArea className="flex-1 p-3 md:p-6">
+        <div className="max-w-4xl mx-auto space-y-4 md:space-y-6">
           {messages.map((message) => (
             <MessageBubble key={message.id} message={message} />
           ))}
@@ -425,7 +432,7 @@ export function ChatInterface() {
 
       {/* Input Area */}
       <div className="border-t border-border bg-background/80 backdrop-blur-lg">
-        <div className="max-w-4xl mx-auto p-6">
+        <div className="max-w-4xl mx-auto p-3 md:p-6">
           {/* Upload progress indicator */}
           {uploadingFiles && (
             <div className="mb-3 space-y-2">
@@ -501,7 +508,7 @@ export function ChatInterface() {
           )}
           
           <div className="relative">
-            <div className="flex items-end gap-3 bg-card border border-border rounded-xl p-2 shadow-card-custom">
+            <div className="flex items-end gap-2 md:gap-3 bg-card border border-border rounded-xl p-2 shadow-card-custom">
               {settings.enable_file_uploads && <FileAttachment onFileSelect={handleFileSelect} />}
 
               <Button
@@ -521,12 +528,17 @@ export function ChatInterface() {
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask W ai anything... I have full capabilities!"
-                className="flex-1 min-h-[40px] max-h-32 resize-none border-0 bg-transparent p-2 focus-visible:ring-0 placeholder:text-muted-foreground"
+                className="flex-1 min-h-[40px] max-h-32 resize-none border-0 bg-transparent p-2 focus-visible:ring-0 placeholder:text-muted-foreground text-sm md:text-base"
                 rows={1}
               />
               
-              <div className="flex items-center gap-2">
-                {settings.enable_voice_input && <VoiceInput onTranscript={handleVoiceTranscript} />}
+              <div className="flex items-center gap-1 md:gap-2">
+                {settings.enable_voice_input && (
+                  <VoiceInput 
+                    onTranscript={handleVoiceTranscript}
+                    onComplete={handleVoiceComplete}
+                  />
+                )}
                 
                 <Button 
                   onClick={handleSendMessage}
