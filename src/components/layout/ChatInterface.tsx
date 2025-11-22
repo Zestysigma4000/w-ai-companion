@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "../chat/MessageBubble";
-import { Send, File, Globe, Brain } from "lucide-react";
+import { Send, File, Brain } from "lucide-react";
 import { useConversations } from "@/hooks/useConversations";
 import { supabase } from "@/integrations/supabase/client";
 import { VoiceInput } from "../chat/VoiceInput";
@@ -39,7 +39,6 @@ export function ChatInterface() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
-  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [deepThinkEnabled, setDeepThinkEnabled] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -173,7 +172,6 @@ export function ChatInterface() {
           message: currentInput,
           conversationId: currentConversationId || null,
           attachments: uploadedFiles,
-          webSearchEnabled,
           deepThinkEnabled
         },
         headers: {
@@ -191,7 +189,6 @@ export function ChatInterface() {
             message: currentInput,
             conversationId: null,
             attachments: uploadedFiles,
-            webSearchEnabled,
             deepThinkEnabled
           };
           const { data: retryData, error: retryError } = await supabase.functions.invoke('chat', {
@@ -436,41 +433,8 @@ export function ChatInterface() {
           )}
           
           <div className="relative">
-            {/* Tool toggles */}
-            <div className="hidden">
-              <Button
-                variant={webSearchEnabled ? "default" : "outline"}
-                size="sm"
-                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-                className="flex items-center gap-2"
-              >
-                <Globe className="w-4 h-4" />
-                Web Search
-              </Button>
-              <Button
-                variant={deepThinkEnabled ? "default" : "outline"}
-                size="sm"
-                onClick={() => setDeepThinkEnabled(!deepThinkEnabled)}
-                className="flex items-center gap-2"
-              >
-                <Brain className="w-4 h-4" />
-                Deep Think
-              </Button>
-            </div>
-            
             <div className="flex items-end gap-3 bg-card border border-border rounded-xl p-4 shadow-card-custom">
               <FileAttachment onFileSelect={handleFileSelect} />
-              
-              <Button
-                variant={webSearchEnabled ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-                aria-pressed={webSearchEnabled}
-                title="Web Search"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <Globe className="w-4 h-4" />
-              </Button>
 
               <Button
                 variant={deepThinkEnabled ? "default" : "ghost"}
