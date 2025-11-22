@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "../chat/MessageBubble";
 import { Send, File, Brain } from "lucide-react";
 import { useConversations } from "@/hooks/useConversations";
+import { useAppSettings } from "@/hooks/useAppSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { VoiceInput } from "../chat/VoiceInput";
 import { FileAttachment } from "../chat/FileAttachment";
@@ -25,6 +26,7 @@ interface Message {
 
 export function ChatInterface() {
   const { currentConversationId, setCurrentConversationId, refreshConversations } = useConversations();
+  const { settings } = useAppSettings();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -500,7 +502,7 @@ export function ChatInterface() {
           
           <div className="relative">
             <div className="flex items-end gap-3 bg-card border border-border rounded-xl p-2 shadow-card-custom">
-              <FileAttachment onFileSelect={handleFileSelect} />
+              {settings.enable_file_uploads && <FileAttachment onFileSelect={handleFileSelect} />}
 
               <Button
                 variant={deepThinkEnabled ? "default" : "ghost"}
@@ -524,7 +526,7 @@ export function ChatInterface() {
               />
               
               <div className="flex items-center gap-2">
-                <VoiceInput onTranscript={handleVoiceTranscript} />
+                {settings.enable_voice_input && <VoiceInput onTranscript={handleVoiceTranscript} />}
                 
                 <Button 
                   onClick={handleSendMessage}

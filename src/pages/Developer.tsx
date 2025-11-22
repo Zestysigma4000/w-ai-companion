@@ -27,6 +27,14 @@ interface AppSettings {
   auto_cleanup_days: number;
   enable_file_uploads: boolean;
   enable_voice_input: boolean;
+  session_timeout_minutes: number;
+  max_conversations_per_user: number;
+  enable_markdown: boolean;
+  enable_code_highlighting: boolean;
+  enable_analytics: boolean;
+  enable_email_notifications: boolean;
+  backup_frequency_hours: number;
+  theme_mode: string;
 }
 
 interface UserStats {
@@ -72,6 +80,14 @@ const Developer = () => {
     auto_cleanup_days: 30,
     enable_file_uploads: true,
     enable_voice_input: true,
+    session_timeout_minutes: 60,
+    max_conversations_per_user: 100,
+    enable_markdown: true,
+    enable_code_highlighting: true,
+    enable_analytics: true,
+    enable_email_notifications: false,
+    backup_frequency_hours: 24,
+    theme_mode: "system",
   });
   const [stats, setStats] = useState<UserStats>({
     totalUsers: 0,
@@ -98,51 +114,33 @@ const Developer = () => {
         event: 'INSERT', 
         schema: 'public',
         table: 'activity_logs'
-      }, (payload: any) => {
+      }, (payload) => {
         const log = payload.new;
-        const eventData = log.event_data || {};
-        
-        let message = '';
-        switch (log.event_type) {
-          case 'model_selected':
-            message = `🤖 Model selected: ${eventData.model} (${eventData.reason})`;
-            break;
-          case 'message_sent':
-            message = `💬 Message sent (${eventData.message_length} chars, ${eventData.attachments_count} files${eventData.has_images ? ', includes images' : ''})`;
-            break;
-          case 'response_generated':
-            message = `✅ Response generated with ${eventData.model} (${eventData.response_length} chars)`;
-            break;
-          case 'conversation_created':
-            message = `📝 New conversation: "${eventData.title}"`;
-            break;
-          case 'owner_request':
-            message = `👑 ${eventData.message}`;
-            break;
-          default:
-            message = `${log.event_type}: ${JSON.stringify(eventData)}`;
-        }
-        
-        addLog(log.severity, message);
+        addLog(
+          log.severity || 'info',
+          `[${log.event_type}] ${JSON.stringify(log.event_data || {})}`
+        );
       })
       .subscribe();
-    
-    // Listen to user_roles table for new accounts
-    const userChannel = supabase
-      .channel('user-roles')
-      .on('postgres_changes', { 
-        event: 'INSERT', 
+
+    // Listen to app_settings for real-time settings changes
+    const settingsChannel = supabase
+      .channel('app-settings-realtime')
+      .on('postgres_changes', {
+        event: '*',
         schema: 'public',
-        table: 'user_roles'
+        table: 'app_settings'
       }, (payload: any) => {
-        addLog('success', `👤 New account created with role: ${payload.new.role}`);
-        loadStats(); // Refresh stats
+        console.log('Settings changed in real-time:', payload);
+        addLog('info', `Setting changed: ${payload.new?.key || payload.old?.key || 'unknown'}`);
+        // Reload settings when any change occurs
+        loadSettings();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(activityChannel);
-      supabase.removeChannel(userChannel);
+      supabase.removeChannel(settingsChannel);
     };
   }, []);
 
@@ -860,6 +858,192 @@ const Developer = () => {
                 <p className="text-xs text-muted-foreground">
                   Automatically delete conversations older than specified days (0 = disabled)
                 </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Session & User Limits</CardTitle>
+              <CardDescription>
+                Configure session timeouts and user-specific limits
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="session-timeout">Session Timeout (minutes)</Label>
+                <Input
+                  id="session-timeout"
+                  type="number"
+                  value={settings.session_timeout_minutes}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      session_timeout_minutes: parseInt(e.target.value),
+                    })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Automatically sign out inactive users after this duration
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="max-conversations">Max Conversations Per User</Label>
+                <Input
+                  id="max-conversations"
+                  type="number"
+                  value={settings.max_conversations_per_user}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      max_conversations_per_user: parseInt(e.target.value),
+                    })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Maximum number of conversations each user can create (0 = unlimited)
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>UI & Display Settings</CardTitle>
+              <CardDescription>
+                Configure user interface and rendering options
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="enable-markdown">Markdown Rendering</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Enable markdown formatting in messages
+                  </p>
+                </div>
+                <Switch
+                  id="enable-markdown"
+                  checked={settings.enable_markdown}
+                  onCheckedChange={(checked) =>
+                    setSettings({ ...settings, enable_markdown: checked })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="enable-code">Code Highlighting</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Enable syntax highlighting for code blocks
+                  </p>
+                </div>
+                <Switch
+                  id="enable-code"
+                  checked={settings.enable_code_highlighting}
+                  onCheckedChange={(checked) =>
+                    setSettings({ ...settings, enable_code_highlighting: checked })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="theme-mode">Default Theme</Label>
+                <select
+                  id="theme-mode"
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background"
+                  value={settings.theme_mode}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      theme_mode: e.target.value,
+                    })
+                  }
+                >
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                  <option value="system">System (Auto)</option>
+                </select>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Analytics & Notifications</CardTitle>
+              <CardDescription>
+                Configure tracking and notification settings
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="enable-analytics">Analytics Tracking</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Track usage statistics and user behavior
+                  </p>
+                </div>
+                <Switch
+                  id="enable-analytics"
+                  checked={settings.enable_analytics}
+                  onCheckedChange={(checked) =>
+                    setSettings({ ...settings, enable_analytics: checked })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="enable-notifications">Email Notifications</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Send email alerts for system events
+                  </p>
+                </div>
+                <Switch
+                  id="enable-notifications"
+                  checked={settings.enable_email_notifications}
+                  onCheckedChange={(checked) =>
+                    setSettings({ ...settings, enable_email_notifications: checked })
+                  }
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Backup & Data Management</CardTitle>
+              <CardDescription>
+                Configure automatic backup frequency
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="backup-frequency">Backup Frequency (hours)</Label>
+                <Input
+                  id="backup-frequency"
+                  type="number"
+                  value={settings.backup_frequency_hours}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      backup_frequency_hours: parseInt(e.target.value),
+                    })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Automatically backup database every X hours (0 = disabled)
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1">
+                  Create Backup Now
+                </Button>
+                <Button variant="outline" className="flex-1">
+                  Export All Data
+                </Button>
               </div>
             </CardContent>
           </Card>
