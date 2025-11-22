@@ -18,6 +18,15 @@ interface AppSettings {
   max_message_length: number;
   max_file_size_mb: number;
   max_files_per_message: number;
+  default_model: string;
+  maintenance_mode: boolean;
+  allow_new_signups: boolean;
+  app_name: string;
+  welcome_message: string;
+  logging_level: string;
+  auto_cleanup_days: number;
+  enable_file_uploads: boolean;
+  enable_voice_input: boolean;
 }
 
 interface UserStats {
@@ -46,6 +55,15 @@ const Developer = () => {
     max_message_length: 10000,
     max_file_size_mb: 20,
     max_files_per_message: 10,
+    default_model: "google/gemini-2.0-flash-exp:free",
+    maintenance_mode: false,
+    allow_new_signups: true,
+    app_name: "AI Assistant",
+    welcome_message: "Hello! How can I help you today?",
+    logging_level: "info",
+    auto_cleanup_days: 30,
+    enable_file_uploads: true,
+    enable_voice_input: true,
   });
   const [stats, setStats] = useState<UserStats>({
     totalUsers: 0,
@@ -159,10 +177,30 @@ const Developer = () => {
       .select("key, value");
 
     if (data) {
-      const settingsObj: any = {};
+      const settingsObj: any = {
+        // Set defaults first
+        rate_limit_enabled: true,
+        rate_limit_per_hour: 60,
+        rate_limit_per_minute: 10,
+        max_message_length: 10000,
+        max_file_size_mb: 20,
+        max_files_per_message: 10,
+        default_model: "google/gemini-2.0-flash-exp:free",
+        maintenance_mode: false,
+        allow_new_signups: true,
+        app_name: "AI Assistant",
+        welcome_message: "Hello! How can I help you today?",
+        logging_level: "info",
+        auto_cleanup_days: 30,
+        enable_file_uploads: true,
+        enable_voice_input: true,
+      };
+      
+      // Override with database values
       data.forEach((setting) => {
         settingsObj[setting.key] = setting.value;
       });
+      
       setSettings(settingsObj);
       addLog('success', 'Settings loaded successfully');
     }
@@ -424,6 +462,152 @@ const Developer = () => {
         <TabsContent value="settings" className="space-y-6">
           <Card>
             <CardHeader>
+              <CardTitle>Application Settings</CardTitle>
+              <CardDescription>
+                Configure general application behavior and branding
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="app-name">Application Name</Label>
+                <Input
+                  id="app-name"
+                  type="text"
+                  value={settings.app_name}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      app_name: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="welcome-message">Welcome Message</Label>
+                <Input
+                  id="welcome-message"
+                  type="text"
+                  value={settings.welcome_message}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      welcome_message: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="maintenance-mode">Maintenance Mode</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Temporarily disable the application for maintenance
+                  </p>
+                </div>
+                <Switch
+                  id="maintenance-mode"
+                  checked={settings.maintenance_mode}
+                  onCheckedChange={(checked) =>
+                    setSettings({ ...settings, maintenance_mode: checked })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="allow-signups">Allow New Signups</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Enable or disable new user registrations
+                  </p>
+                </div>
+                <Switch
+                  id="allow-signups"
+                  checked={settings.allow_new_signups}
+                  onCheckedChange={(checked) =>
+                    setSettings({ ...settings, allow_new_signups: checked })
+                  }
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Model Configuration</CardTitle>
+              <CardDescription>
+                Select and configure the default AI model
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="default-model">Default Model</Label>
+                <select
+                  id="default-model"
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background"
+                  value={settings.default_model}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      default_model: e.target.value,
+                    })
+                  }
+                >
+                  <option value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash (Fast)</option>
+                  <option value="deepseek/deepseek-r1:free">DeepSeek R1 (Reasoning)</option>
+                  <option value="qwen/qwen-2.5-72b-instruct:free">Qwen 2.5 (Balanced)</option>
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  This model will be used by default for new conversations
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Feature Toggles</CardTitle>
+              <CardDescription>
+                Enable or disable application features
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="enable-uploads">File Uploads</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Allow users to upload files and images
+                  </p>
+                </div>
+                <Switch
+                  id="enable-uploads"
+                  checked={settings.enable_file_uploads}
+                  onCheckedChange={(checked) =>
+                    setSettings({ ...settings, enable_file_uploads: checked })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="enable-voice">Voice Input</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Enable voice-to-text input functionality
+                  </p>
+                </div>
+                <Switch
+                  id="enable-voice"
+                  checked={settings.enable_voice_input}
+                  onCheckedChange={(checked) =>
+                    setSettings({ ...settings, enable_voice_input: checked })
+                  }
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Rate Limiting</CardTitle>
               <CardDescription>
                 Control API request limits for guest users (Owner account is unlimited)
@@ -480,7 +664,7 @@ const Developer = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle>Message Limits</CardTitle>
+              <CardTitle>Message & Upload Limits</CardTitle>
               <CardDescription>
                 Configure message and file upload restrictions
               </CardDescription>
@@ -533,7 +717,61 @@ const Developer = () => {
             </CardContent>
           </Card>
 
-          <div className="flex justify-end">
+          <Card>
+            <CardHeader>
+              <CardTitle>System Maintenance</CardTitle>
+              <CardDescription>
+                Configure automatic cleanup and logging
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="logging-level">Logging Level</Label>
+                <select
+                  id="logging-level"
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background"
+                  value={settings.logging_level}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      logging_level: e.target.value,
+                    })
+                  }
+                >
+                  <option value="error">Error Only</option>
+                  <option value="warning">Warning & Error</option>
+                  <option value="info">Info, Warning & Error</option>
+                  <option value="debug">All (Debug Mode)</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="auto-cleanup">Auto-Cleanup Conversations (days)</Label>
+                <Input
+                  id="auto-cleanup"
+                  type="number"
+                  value={settings.auto_cleanup_days}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      auto_cleanup_days: parseInt(e.target.value),
+                    })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Automatically delete conversations older than specified days (0 = disabled)
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end gap-3">
+            <Button 
+              variant="outline"
+              onClick={loadSettings}
+            >
+              Reset Changes
+            </Button>
             <Button onClick={handleSaveSettings} disabled={saving}>
               {saving ? "Saving..." : "Save All Settings"}
             </Button>
