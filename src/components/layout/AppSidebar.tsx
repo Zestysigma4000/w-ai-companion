@@ -93,9 +93,9 @@ export function AppSidebar() {
     : conversations.slice(0, 4);
 
   return (
-    <div className="fixed left-0 top-14 bottom-0 w-64 bg-sidebar border-r border-sidebar-border z-40">
+    <div className="fixed md:static left-0 top-14 md:top-0 bottom-0 w-64 bg-sidebar border-r border-sidebar-border z-40 flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-sidebar-border">
+      <div className="p-4 border-b border-sidebar-border flex-shrink-0">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center glow-primary">
             <Bot className="w-4 h-4 text-white" />
@@ -198,7 +198,7 @@ export function AppSidebar() {
       </ScrollArea>
 
       {/* Bottom Settings */}
-      <div className="p-4 border-t border-sidebar-border space-y-2">
+      <div className="p-4 border-t border-sidebar-border space-y-2 flex-shrink-0">
         <Button 
           variant="ghost" 
           className="w-full justify-start hover:bg-sidebar-accent"
