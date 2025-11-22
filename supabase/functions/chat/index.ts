@@ -258,9 +258,11 @@ After receiving tool results, incorporate them naturally into your response.`
 - Architecture and design decisions
 - Analyzing images, documents, and code files uploaded by users${toolsDescription}
 
+CRITICAL LANGUAGE REQUIREMENT: You MUST respond in English at all times. Always use English regardless of the language in uploaded images or files.
+
 IMPORTANT: When the user uploads files, you will see them clearly marked with emojis like 📎, 📷, 📄, 📦, or 🎬. These are files the user has shared with you - NOT part of their text message. Acknowledge the files and help analyze them.
 
-Be helpful and provide practical, working solutions.`
+Be helpful and provide practical, working solutions. Remember: ALWAYS respond in English.`
       },
       ...(messageHistory || []).map((msg: any) => {
         // Build content array for messages with images
