@@ -433,7 +433,7 @@ export function ChatInterface() {
           )}
           
           <div className="relative">
-            <div className="flex items-end gap-3 bg-card border border-border rounded-xl p-4 shadow-card-custom">
+            <div className="flex items-end gap-3 bg-card border border-border rounded-xl p-2 shadow-card-custom">
               <FileAttachment onFileSelect={handleFileSelect} />
 
               <Button
@@ -453,7 +453,7 @@ export function ChatInterface() {
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask W ai anything... I have full capabilities!"
-                className="flex-1 min-h-[20px] max-h-32 resize-none border-0 bg-transparent p-0 focus-visible:ring-0 placeholder:text-muted-foreground"
+                className="flex-1 min-h-[40px] max-h-32 resize-none border-0 bg-transparent p-2 focus-visible:ring-0 placeholder:text-muted-foreground"
                 rows={1}
               />
               
