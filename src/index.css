@@ -7,45 +7,45 @@
 @layer base {
   :root,
   [data-theme="dark-blue"] {
-    /* Base colors - Modern tech palette */
-    --background: 240 10% 4%;
-    --foreground: 220 15% 95%;
-    --card: 240 8% 6%;
-    --card-foreground: 220 15% 95%;
-    --popover: 240 8% 6%;
-    --popover-foreground: 220 15% 95%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 220 15% 98%;
-    --primary-glow: 217 91% 70%;
-    --secondary: 240 8% 12%;
-    --secondary-foreground: 220 15% 90%;
-    --muted: 240 6% 10%;
-    --muted-foreground: 220 10% 60%;
-    --accent: 270 91% 65%;
-    --accent-foreground: 220 15% 98%;
+    /* ChatGPT Dark Theme - Professional AI Interface */
+    --background: 240 9% 24%;
+    --foreground: 0 0% 95%;
+    --card: 240 9% 28%;
+    --card-foreground: 0 0% 95%;
+    --popover: 240 9% 28%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 160 84% 39%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 160 84% 49%;
+    --secondary: 240 9% 20%;
+    --secondary-foreground: 0 0% 90%;
+    --muted: 240 9% 20%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 160 84% 39%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
-    --destructive-foreground: 220 15% 98%;
-    --border: 240 6% 20%;
-    --input: 240 6% 18%;
-    --ring: 217 91% 60%;
-    --radius: 0.75rem;
-    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(270 91% 65%));
-    --gradient-secondary: linear-gradient(135deg, hsl(240 8% 6%), hsl(240 6% 10%));
-    --gradient-text: linear-gradient(135deg, hsl(217 91% 70%), hsl(270 91% 75%));
-    --glow-primary: 0 0 30px hsl(217 91% 60% / 0.3);
-    --glow-accent: 0 0 20px hsl(270 91% 65% / 0.2);
-    --shadow-elegant: 0 10px 40px -10px hsl(217 91% 60% / 0.1);
-    --shadow-card: 0 4px 20px hsl(240 10% 4% / 0.3);
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 9% 35%;
+    --input: 240 9% 28%;
+    --ring: 160 84% 39%;
+    --radius: 0.5rem;
+    --gradient-primary: linear-gradient(135deg, hsl(160 84% 39%), hsl(160 84% 49%));
+    --gradient-secondary: linear-gradient(135deg, hsl(240 9% 28%), hsl(240 9% 24%));
+    --gradient-text: linear-gradient(135deg, hsl(160 84% 49%), hsl(160 84% 59%));
+    --glow-primary: 0 0 20px hsl(160 84% 39% / 0.2);
+    --glow-accent: 0 0 15px hsl(160 84% 39% / 0.15);
+    --shadow-elegant: 0 10px 40px -10px hsl(0 0% 0% / 0.3);
+    --shadow-card: 0 2px 8px hsl(0 0% 0% / 0.3);
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-spring: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-    --sidebar-background: 240 8% 5%;
-    --sidebar-foreground: 220 15% 90%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 220 15% 98%;
-    --sidebar-accent: 240 6% 12%;
-    --sidebar-accent-foreground: 220 15% 90%;
-    --sidebar-border: 240 6% 20%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-background: 240 9% 12%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 160 84% 39%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 9% 18%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 240 9% 25%;
+    --sidebar-ring: 160 84% 39%;
   }
 
   [data-theme="light"] {
