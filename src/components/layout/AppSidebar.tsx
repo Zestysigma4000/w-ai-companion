@@ -24,10 +24,13 @@ import {
 import { useConversations } from "@/hooks/useConversations";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 export function AppSidebar() {
   const navigate = useNavigate();
   const [isListExpanded, setIsListExpanded] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   const { 
     conversations, 
     currentConversationId, 
@@ -36,6 +39,23 @@ export function AppSidebar() {
     deleteConversation,
     deleteAllConversations,
   } = useConversations();
+
+  useEffect(() => {
+    checkOwnerStatus();
+  }, []);
+
+  const checkOwnerStatus = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .single();
+      
+      setIsOwner(roleData?.role === "owner");
+    }
+  };
 
   const handleNewConversation = async () => {
     await createConversation("New Conversation");
@@ -187,6 +207,30 @@ export function AppSidebar() {
           <Settings className="w-4 h-4 mr-2" />
           Settings
         </Button>
+        
+        {isOwner && (
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start hover:bg-sidebar-accent"
+            onClick={() => navigate("/developer")}
+          >
+            <svg
+              className="w-4 h-4 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+              />
+            </svg>
+            Developer
+          </Button>
+        )}
         
         <div className="mt-2 text-xs text-muted-foreground text-center">
           W ai v1.0 • Full Capabilities

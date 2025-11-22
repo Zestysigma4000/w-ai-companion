@@ -84,6 +84,91 @@ serve(async (req) => {
       )
     }
 
+    // Check user role and apply rate limiting for non-owners
+    const { data: roleData } = await supabaseClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single()
+    
+    const isOwner = roleData?.role === 'owner'
+
+    // Rate limiting for non-owner users
+    if (!isOwner) {
+      // Get app settings for rate limits
+      const { data: settings } = await supabaseClient
+        .from('app_settings')
+        .select('key, value')
+        .in('key', ['rate_limit_enabled', 'rate_limit_per_hour', 'rate_limit_per_minute'])
+      
+      const rateLimitEnabled = settings?.find(s => s.key === 'rate_limit_enabled')?.value || true
+      const limitPerHour = settings?.find(s => s.key === 'rate_limit_per_hour')?.value || 60
+      const limitPerMinute = settings?.find(s => s.key === 'rate_limit_per_minute')?.value || 10
+
+      if (rateLimitEnabled) {
+        // Check hourly limit
+        const hourAgo = new Date(Date.now() - 3600000).toISOString()
+        const { count: hourlyCount } = await supabaseClient
+          .from('api_usage')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('created_at', hourAgo)
+
+        if (hourlyCount && hourlyCount >= limitPerHour) {
+          return new Response(
+            JSON.stringify({ 
+              error: `Rate limit exceeded. Maximum ${limitPerHour} requests per hour.`,
+              retryAfter: 3600 
+            }),
+            { 
+              status: 429,
+              headers: { 
+                ...corsHeaders,
+                'Content-Type': 'application/json',
+                'Retry-After': '3600',
+                'X-RateLimit-Limit': limitPerHour.toString(),
+                'X-RateLimit-Remaining': '0'
+              }
+            }
+          )
+        }
+
+        // Check per-minute limit
+        const minuteAgo = new Date(Date.now() - 60000).toISOString()
+        const { count: minuteCount } = await supabaseClient
+          .from('api_usage')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('created_at', minuteAgo)
+
+        if (minuteCount && minuteCount >= limitPerMinute) {
+          return new Response(
+            JSON.stringify({ 
+              error: `Rate limit exceeded. Maximum ${limitPerMinute} requests per minute.`,
+              retryAfter: 60 
+            }),
+            { 
+              status: 429,
+              headers: { 
+                ...corsHeaders,
+                'Content-Type': 'application/json',
+                'Retry-After': '60',
+                'X-RateLimit-Limit': limitPerMinute.toString(),
+                'X-RateLimit-Remaining': '0'
+              }
+            }
+          )
+        }
+
+        // Track this request
+        await supabaseClient
+          .from('api_usage')
+          .insert({ user_id: user.id })
+      }
+    } else {
+      console.log('👑 Owner request - bypassing rate limits')
+    }
+
     // Get or create conversation
     let conversation
     if (conversationId) {
