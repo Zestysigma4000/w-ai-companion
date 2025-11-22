@@ -98,18 +98,18 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   );
 
   return (
-    <div className={`flex gap-4 ${isUser ? 'flex-row-reverse' : 'flex-row'} group`}>
+    <div className={`flex gap-2 md:gap-4 ${isUser ? 'flex-row-reverse' : 'flex-row'} group`}>
       {/* Avatar */}
-      <Avatar className={`w-8 h-8 flex-shrink-0 ${isUser ? 'bg-muted' : 'bg-gradient-primary glow-primary'}`}>
+      <Avatar className={`w-7 h-7 md:w-8 md:h-8 flex-shrink-0 ${isUser ? 'bg-muted' : 'bg-gradient-primary glow-primary'}`}>
         <AvatarFallback className={`${isUser ? 'text-foreground' : 'text-white'}`}>
-          {isUser ? <User className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+          {isUser ? <User className="w-3.5 h-3.5 md:w-4 md:h-4" /> : <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4" />}
         </AvatarFallback>
       </Avatar>
 
       {/* Message Content */}
       <div className={`flex-1 max-w-4xl ${isUser ? 'flex flex-col items-end' : ''}`}>
         {isUser ? (
-          <div className="relative px-4 py-3 rounded-2xl shadow-sm bg-primary text-primary-foreground ml-12">
+          <div className="relative px-3 py-2 md:px-4 md:py-3 rounded-2xl shadow-sm bg-primary text-primary-foreground ml-8 md:ml-12">
             <div className="prose prose-sm max-w-none dark:prose-invert">
               <p className="whitespace-pre-wrap text-sm leading-relaxed m-0">
                 {message.content}
@@ -287,7 +287,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 
         {/* Message Actions */}
         {!message.isTyping && (
-          <div className={`flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity ${isUser ? 'flex-row-reverse' : ''}`}>
+          <div className={`flex items-center gap-1 mt-2 opacity-0 md:group-hover:opacity-100 transition-opacity ${isUser ? 'flex-row-reverse' : ''}`}>
             <Button
               variant="ghost"
               size="sm"
@@ -295,7 +295,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
             >
               <Copy className="w-3 h-3 mr-1" />
-              {copied ? 'Copied!' : 'Copy'}
+              <span className="hidden sm:inline">{copied ? 'Copied!' : 'Copy'}</span>
             </Button>
             
             {!isUser && (
