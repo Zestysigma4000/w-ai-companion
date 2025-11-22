@@ -230,7 +230,7 @@ export function ChatInterface() {
           }
 
           await new Promise<void>((resolve) => {
-            const speed = Math.max(15, Math.floor(3000 / Math.max(1, fullText.length))); // slower speed
+            const speed = Math.max(12, Math.floor(1800 / Math.max(1, fullText.length))); // faster typing
             let i = 0;
             const interval = setInterval(() => {
               i = Math.min(i + 1, fullText.length); // 1 character at a time
@@ -291,7 +291,7 @@ export function ChatInterface() {
 
       // Animate content reveal
       await new Promise<void>((resolve) => {
-        const speed = Math.max(15, Math.floor(3000 / Math.max(1, fullText.length))); // slower speed
+        const speed = Math.max(12, Math.floor(1800 / Math.max(1, fullText.length))); // faster typing
         let i = 0;
         const interval = setInterval(() => {
           i = Math.min(i + 1, fullText.length); // 1 character at a time

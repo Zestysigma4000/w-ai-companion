@@ -163,6 +163,9 @@ serve(async (req) => {
     let fileContextText = ''
     
     if (attachments.length > 0) {
+      // Add clear header when files are attached
+      fileContextText = `\n\n📎 USER UPLOADED ${attachments.length} FILE(S):\n`
+      
       for (const attachment of attachments) {
         try {
           // Download the file from storage
@@ -192,6 +195,7 @@ serve(async (req) => {
                 url: `data:${attachment.type};base64,${base64}`
               }
             })
+            fileContextText += `\n📷 IMAGE: ${attachment.name} (${(attachment.size / 1024).toFixed(1)}KB)\n`
           } 
           // Handle text-based files (text, code, json, etc.)
           else if (
@@ -199,21 +203,34 @@ serve(async (req) => {
             attachment.type === 'application/json' ||
             attachment.type === 'application/javascript' ||
             attachment.type === 'application/typescript' ||
-            attachment.name.match(/\.(txt|md|js|ts|tsx|jsx|py|java|cpp|c|h|css|html|xml|yaml|yml|json|csv)$/i)
+            attachment.name.match(/\.(txt|md|js|ts|tsx|jsx|py|java|cpp|c|h|css|scss|html|xml|yaml|yml|csv|svg)$/i)
           ) {
             // Read as text
             const textContent = await fileData.text()
-            fileContextText += `\n\n--- File: ${attachment.name} (${attachment.type}) ---\n${textContent}\n--- End of ${attachment.name} ---\n`
+            fileContextText += `\n📄 TEXT FILE: ${attachment.name} (${attachment.type})\n--- FILE CONTENTS START ---\n${textContent}\n--- FILE CONTENTS END ---\n`
           }
-          // For other file types, just mention them
+          // For PDF, Office docs, and archives
+          else if (
+            attachment.type === 'application/pdf' ||
+            attachment.name.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|7z|tar|gz)$/i)
+          ) {
+            fileContextText += `\n📦 DOCUMENT/ARCHIVE: ${attachment.name} (${attachment.type}, ${(attachment.size / 1024).toFixed(1)}KB)\n   Note: This is a binary file. The user has uploaded this file for your reference.\n`
+          }
+          // For video/audio files
+          else if (attachment.type.startsWith('video/') || attachment.type.startsWith('audio/')) {
+            fileContextText += `\n🎬 MEDIA FILE: ${attachment.name} (${attachment.type}, ${(attachment.size / 1024).toFixed(1)}KB)\n   Note: This is a media file. The user has uploaded this file for your reference.\n`
+          }
+          // For other file types
           else {
-            fileContextText += `\n[File attached: ${attachment.name} (${attachment.type}, ${(attachment.size / 1024).toFixed(1)}KB) - binary file]`
+            fileContextText += `\n📎 FILE: ${attachment.name} (${attachment.type}, ${(attachment.size / 1024).toFixed(1)}KB)\n   Note: This is a binary file. The user has uploaded this file for your reference.\n`
           }
         } catch (err) {
           console.error(`Error processing ${attachment.name}:`, err)
-          fileContextText += `\n[Error reading file: ${attachment.name}]`
+          fileContextText += `\n❌ ERROR reading file: ${attachment.name}\n`
         }
       }
+      
+      fileContextText += `\n--- END OF UPLOADED FILES ---\n`
     }
 
     // Prepare messages for AI
@@ -239,7 +256,9 @@ After receiving tool results, incorporate them naturally into your response.`
 - Solving complex problems and providing detailed explanations
 - File management and project organization
 - Architecture and design decisions
-- Analyzing images and documents${toolsDescription}
+- Analyzing images, documents, and code files uploaded by users${toolsDescription}
+
+IMPORTANT: When the user uploads files, you will see them clearly marked with emojis like 📎, 📷, 📄, 📦, or 🎬. These are files the user has shared with you - NOT part of their text message. Acknowledge the files and help analyze them.
 
 Be helpful and provide practical, working solutions.`
       },
