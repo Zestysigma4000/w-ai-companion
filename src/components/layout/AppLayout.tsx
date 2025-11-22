@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { ConversationsProvider } from "@/hooks/useConversations";
 
 export function AppLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(true); // Start open on desktop
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768);
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
