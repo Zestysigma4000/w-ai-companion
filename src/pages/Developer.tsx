@@ -82,6 +82,8 @@ const Developer = () => {
   const [consoleLogs, setConsoleLogs] = useState<ConsoleLog[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [userRoleFilter, setUserRoleFilter] = useState<"all" | "owner" | "guest">("all");
 
   useEffect(() => {
     checkOwnerStatus();
@@ -884,18 +886,57 @@ const Developer = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex justify-between items-center mb-4">
-                <p className="text-sm text-muted-foreground">
-                  {users.length} total users
-                </p>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={loadUsers}
-                  disabled={loadingUsers}
-                >
-                  {loadingUsers ? "Refreshing..." : "Refresh"}
-                </Button>
+              <div className="flex flex-col gap-4 mb-6">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1">
+                    <Input
+                      placeholder="Search by email..."
+                      value={userSearchQuery}
+                      onChange={(e) => setUserSearchQuery(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="w-full sm:w-[180px]">
+                    <select
+                      value={userRoleFilter}
+                      onChange={(e) => setUserRoleFilter(e.target.value as "all" | "owner" | "guest")}
+                      className="w-full h-10 px-3 rounded-md border border-input bg-background"
+                    >
+                      <option value="all">All Roles</option>
+                      <option value="owner">Owner Only</option>
+                      <option value="guest">Guest Only</option>
+                    </select>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="default"
+                    onClick={loadUsers}
+                    disabled={loadingUsers}
+                  >
+                    {loadingUsers ? "Refreshing..." : "Refresh"}
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <p>
+                    Showing {users.filter(user => {
+                      const matchesSearch = user.email.toLowerCase().includes(userSearchQuery.toLowerCase());
+                      const matchesRole = userRoleFilter === "all" || user.role === userRoleFilter;
+                      return matchesSearch && matchesRole;
+                    }).length} of {users.length} users
+                  </p>
+                  {(userSearchQuery || userRoleFilter !== "all") && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setUserSearchQuery("");
+                        setUserRoleFilter("all");
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {loadingUsers ? (
@@ -906,54 +947,70 @@ const Developer = () => {
                 <div className="text-center py-8 text-muted-foreground">
                   No users found
                 </div>
-              ) : (
-                <div className="rounded-md border">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b bg-muted/50">
-                          <th className="px-4 py-3 text-left text-sm font-medium">Email</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium">Role</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium">Registered</th>
-                          <th className="px-4 py-3 text-right text-sm font-medium">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {users.map((user) => (
-                          <tr key={user.id} className="border-b last:border-0">
-                            <td className="px-4 py-3 text-sm">{user.email}</td>
-                            <td className="px-4 py-3 text-sm">
-                              <select
-                                value={user.role}
-                                onChange={(e) => handleRoleChange(user.user_id, e.target.value as 'owner' | 'guest')}
-                                className="px-2 py-1 rounded-md border border-input bg-background text-sm"
-                                disabled={user.email === 'jaidonfigueroa0@gmail.com'}
-                              >
-                                <option value="owner">Owner</option>
-                                <option value="guest">Guest</option>
-                              </select>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-muted-foreground">
-                              {new Date(user.created_at).toLocaleDateString()}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteUser(user.user_id, user.email)}
-                                disabled={user.email === 'jaidonfigueroa0@gmail.com'}
-                                className="text-destructive hover:text-destructive"
-                              >
-                                Delete
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+              ) : (() => {
+                const filteredUsers = users.filter(user => {
+                  const matchesSearch = user.email.toLowerCase().includes(userSearchQuery.toLowerCase());
+                  const matchesRole = userRoleFilter === "all" || user.role === userRoleFilter;
+                  return matchesSearch && matchesRole;
+                });
+
+                return filteredUsers.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No users match your filters
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="rounded-md border">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="px-4 py-3 text-left text-sm font-medium">Email</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium">Role</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium">Registered</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredUsers.map((user) => (
+                            <tr key={user.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                              <td className="px-4 py-3 text-sm font-medium">{user.email}</td>
+                              <td className="px-4 py-3 text-sm">
+                                <select
+                                  value={user.role}
+                                  onChange={(e) => handleRoleChange(user.user_id, e.target.value as 'owner' | 'guest')}
+                                  className="px-2 py-1 rounded-md border border-input bg-background text-sm"
+                                  disabled={user.email === 'jaidonfigueroa0@gmail.com'}
+                                >
+                                  <option value="owner">Owner</option>
+                                  <option value="guest">Guest</option>
+                                </select>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-muted-foreground">
+                                {new Date(user.created_at).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric'
+                                })}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteUser(user.user_id, user.email)}
+                                  disabled={user.email === 'jaidonfigueroa0@gmail.com'}
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                >
+                                  Delete
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="mt-4 p-4 rounded-md bg-muted/50">
                 <p className="text-xs text-muted-foreground">
