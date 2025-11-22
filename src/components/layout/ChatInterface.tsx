@@ -40,6 +40,7 @@ export function ChatInterface() {
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [deepThinkEnabled, setDeepThinkEnabled] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -230,10 +231,10 @@ export function ChatInterface() {
           }
 
           await new Promise<void>((resolve) => {
-            const speed = Math.max(12, Math.floor(1800 / Math.max(1, fullText.length))); // faster typing
+            const speed = Math.max(8, Math.floor(1200 / Math.max(1, fullText.length))); // even faster
             let i = 0;
             const interval = setInterval(() => {
-              i = Math.min(i + 1, fullText.length); // 1 character at a time
+              i = Math.min(i + 2, fullText.length); // 2 characters at a time
               setMessages(prev => prev.map(m =>
                 m.id === typingMessageId ? { ...m, content: fullText.slice(0, i) } : m
               ));
@@ -291,10 +292,10 @@ export function ChatInterface() {
 
       // Animate content reveal
       await new Promise<void>((resolve) => {
-        const speed = Math.max(12, Math.floor(1800 / Math.max(1, fullText.length))); // faster typing
+        const speed = Math.max(8, Math.floor(1200 / Math.max(1, fullText.length))); // even faster
         let i = 0;
         const interval = setInterval(() => {
-          i = Math.min(i + 1, fullText.length); // 1 character at a time
+          i = Math.min(i + 2, fullText.length); // 2 characters at a time
           setMessages(prev => prev.map(m =>
             m.id === typingMessageId ? { ...m, content: fullText.slice(0, i) } : m
           ));
@@ -350,8 +351,60 @@ export function ChatInterface() {
     setAttachedFiles(files);
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    // Check file size (20MB max per file)
+    const maxSize = 20 * 1024 * 1024;
+    const oversizedFiles = files.filter(file => file.size > maxSize);
+    
+    if (oversizedFiles.length > 0) {
+      return;
+    }
+
+    // Check max files (10 max)
+    if (files.length > 10) {
+      return;
+    }
+
+    setAttachedFiles(files);
+  };
+
   return (
-    <div className="flex flex-col h-full max-h-screen">
+    <div 
+      className="flex flex-col h-full max-h-screen"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drag overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 bg-primary/10 backdrop-blur-sm z-50 flex items-center justify-center border-4 border-dashed border-primary">
+          <div className="text-center">
+            <File className="w-16 h-16 text-primary mx-auto mb-4" />
+            <p className="text-2xl font-semibold text-primary">Drop files here to upload</p>
+            <p className="text-muted-foreground mt-2">Up to 10 files, 20MB each</p>
+          </div>
+        </div>
+      )}
+      
       {/* Messages Area */}
       <ScrollArea className="flex-1 p-6">
         <div className="max-w-4xl mx-auto space-y-6">
