@@ -36,6 +36,14 @@ interface UserStats {
   totalConversations: number;
 }
 
+interface UserData {
+  id: string;
+  user_id: string;
+  email: string;
+  role: 'owner' | 'guest';
+  created_at: string;
+}
+
 interface ConsoleLog {
   id: string;
   timestamp: string;
@@ -72,6 +80,8 @@ const Developer = () => {
     totalConversations: 0,
   });
   const [consoleLogs, setConsoleLogs] = useState<ConsoleLog[]>([]);
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
   useEffect(() => {
     checkOwnerStatus();
@@ -167,6 +177,7 @@ const Developer = () => {
     setIsOwner(true);
     await loadSettings();
     await loadStats();
+    await loadUsers();
     setLoading(false);
   };
 
@@ -240,6 +251,92 @@ const Developer = () => {
     });
     
     addLog('success', `Statistics loaded: ${totalUsers} users, ${totalMessages} messages`);
+  };
+
+  const loadUsers = async () => {
+    setLoadingUsers(true);
+    addLog('info', 'Loading users...');
+    try {
+      const { data: userRoles, error } = await supabase
+        .from("user_roles")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      if (userRoles) {
+        // Fetch emails for all users
+        const usersWithEmails = await Promise.all(
+          userRoles.map(async (userRole) => {
+            const { data: emailData } = await supabase
+              .rpc("get_user_email", { _user_id: userRole.user_id });
+            
+            return {
+              ...userRole,
+              email: emailData || "Unknown",
+            };
+          })
+        );
+
+        setUsers(usersWithEmails);
+        addLog('success', `Loaded ${usersWithEmails.length} users`);
+      }
+    } catch (error) {
+      toast.error("Failed to load users");
+      addLog('error', `Failed to load users: ${error}`);
+      console.error(error);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleRoleChange = async (userId: string, newRole: 'owner' | 'guest') => {
+    addLog('info', `Changing role for user ${userId} to ${newRole}...`);
+    try {
+      const { error } = await supabase
+        .from("user_roles")
+        .update({ role: newRole })
+        .eq("user_id", userId);
+
+      if (error) throw error;
+
+      toast.success("Role updated successfully");
+      addLog('success', `Role changed to ${newRole} for user ${userId}`);
+      await loadUsers();
+      await loadStats();
+    } catch (error) {
+      toast.error("Failed to update role");
+      addLog('error', `Failed to update role: ${error}`);
+      console.error(error);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userEmail: string) => {
+    if (!confirm(`Are you sure you want to delete user ${userEmail}? This action cannot be undone.`)) {
+      return;
+    }
+
+    addLog('warning', `Deleting user ${userEmail}...`);
+    try {
+      // Delete from user_roles (RLS will prevent deletion of owner by others)
+      const { error: roleError } = await supabase
+        .from("user_roles")
+        .delete()
+        .eq("user_id", userId);
+
+      if (roleError) throw roleError;
+
+      // Note: Deleting from auth.users requires admin privileges
+      // We can only delete the role record here
+      toast.success("User removed successfully");
+      addLog('success', `User ${userEmail} removed from system`);
+      await loadUsers();
+      await loadStats();
+    } catch (error) {
+      toast.error("Failed to delete user");
+      addLog('error', `Failed to delete user: ${error}`);
+      console.error(error);
+    }
   };
 
   const handleSaveSettings = async () => {
@@ -787,9 +884,82 @@ const Developer = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                User management interface coming soon. Currently showing {stats.totalUsers} total users.
-              </p>
+              <div className="flex justify-between items-center mb-4">
+                <p className="text-sm text-muted-foreground">
+                  {users.length} total users
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={loadUsers}
+                  disabled={loadingUsers}
+                >
+                  {loadingUsers ? "Refreshing..." : "Refresh"}
+                </Button>
+              </div>
+
+              {loadingUsers ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Loading users...
+                </div>
+              ) : users.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No users found
+                </div>
+              ) : (
+                <div className="rounded-md border">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b bg-muted/50">
+                          <th className="px-4 py-3 text-left text-sm font-medium">Email</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium">Role</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium">Registered</th>
+                          <th className="px-4 py-3 text-right text-sm font-medium">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.map((user) => (
+                          <tr key={user.id} className="border-b last:border-0">
+                            <td className="px-4 py-3 text-sm">{user.email}</td>
+                            <td className="px-4 py-3 text-sm">
+                              <select
+                                value={user.role}
+                                onChange={(e) => handleRoleChange(user.user_id, e.target.value as 'owner' | 'guest')}
+                                className="px-2 py-1 rounded-md border border-input bg-background text-sm"
+                                disabled={user.email === 'jaidonfigueroa0@gmail.com'}
+                              >
+                                <option value="owner">Owner</option>
+                                <option value="guest">Guest</option>
+                              </select>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-muted-foreground">
+                              {new Date(user.created_at).toLocaleDateString()}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteUser(user.user_id, user.email)}
+                                disabled={user.email === 'jaidonfigueroa0@gmail.com'}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                Delete
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-4 p-4 rounded-md bg-muted/50">
+                <p className="text-xs text-muted-foreground">
+                  <strong>Note:</strong> The owner account (jaidonfigueroa0@gmail.com) cannot be deleted or have its role changed for security reasons.
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
