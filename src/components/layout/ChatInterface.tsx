@@ -157,9 +157,16 @@ export function ChatInterface() {
             size: file.size
           });
           
-          // Update progress
-          setUploadProgress(Math.round(((i + 1) / filesToUpload.length) * 100));
+          // Update progress after each file
+          const progress = Math.round(((i + 1) / filesToUpload.length) * 100);
+          setUploadProgress(progress);
+          
+          // Small delay to let UI update
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
+        
+        // Keep 100% visible for a moment before clearing
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         setUploadingFiles(false);
         setUploadProgress(0);

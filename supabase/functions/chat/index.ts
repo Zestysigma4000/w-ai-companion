@@ -309,10 +309,13 @@ Be helpful and provide practical, working solutions. Remember: ALWAYS respond in
       throw new Error('VITE_OLLAMA_CLOUD_API_KEY is not configured')
     }
     
-    // Determine which model to use based on whether images are present
+    // Determine which model to use based on whether images are present in CURRENT message
     const hasImages = imageContents.length > 0
     // Note: Only 235b-cloud variant is available for vision on Ollama Cloud
     const modelToUse = hasImages ? 'qwen3-vl:235b-cloud' : 'deepseek-v3.1:671b-cloud'
+    
+    console.log(`🤖 Model Selection: ${hasImages ? 'VISION' : 'TEXT'} model (${modelToUse})`)
+    console.log(`📎 Current message has ${attachments.length} attachments, ${imageContents.length} images`)
     
     // Call Ollama Cloud API using OpenAI-compatible endpoint
     const ollamaResponse = await fetch('https://ollama.com/v1/chat/completions', {
