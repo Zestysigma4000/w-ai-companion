@@ -61,16 +61,58 @@ const Developer = () => {
     // Set up realtime logging
     addLog('info', 'Developer dashboard initialized');
     
-    // Listen to database changes
-    const channel = supabase
-      .channel('developer-logs')
-      .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
-        addLog('info', `Database ${payload.eventType}: ${payload.table}`);
+    // Listen to activity logs table for real-time events
+    const activityChannel = supabase
+      .channel('activity-logs')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public',
+        table: 'activity_logs'
+      }, (payload: any) => {
+        const log = payload.new;
+        const eventData = log.event_data || {};
+        
+        let message = '';
+        switch (log.event_type) {
+          case 'model_selected':
+            message = `🤖 Model selected: ${eventData.model} (${eventData.reason})`;
+            break;
+          case 'message_sent':
+            message = `💬 Message sent (${eventData.message_length} chars, ${eventData.attachments_count} files${eventData.has_images ? ', includes images' : ''})`;
+            break;
+          case 'response_generated':
+            message = `✅ Response generated with ${eventData.model} (${eventData.response_length} chars)`;
+            break;
+          case 'conversation_created':
+            message = `📝 New conversation: "${eventData.title}"`;
+            break;
+          case 'owner_request':
+            message = `👑 ${eventData.message}`;
+            break;
+          default:
+            message = `${log.event_type}: ${JSON.stringify(eventData)}`;
+        }
+        
+        addLog(log.severity, message);
+      })
+      .subscribe();
+    
+    // Listen to user_roles table for new accounts
+    const userChannel = supabase
+      .channel('user-roles')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public',
+        table: 'user_roles'
+      }, (payload: any) => {
+        addLog('success', `👤 New account created with role: ${payload.new.role}`);
+        loadStats(); // Refresh stats
       })
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(activityChannel);
+      supabase.removeChannel(userChannel);
     };
   }, []);
 
