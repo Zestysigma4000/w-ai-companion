@@ -7,7 +7,8 @@ import {
   Settings,
   Trash2,
   Bot,
-  MoreHorizontal
+  MoreHorizontal,
+  Palette
 } from "lucide-react";
 import { ThemeSwitcher } from "../ThemeSwitcher";
 import {
@@ -198,7 +199,14 @@ export function AppSidebar() {
 
       {/* Bottom Settings */}
       <div className="p-4 border-t border-sidebar-border space-y-2">
-        <ThemeSwitcher />
+        <Button 
+          variant="ghost" 
+          className="w-full justify-start hover:bg-sidebar-accent"
+        >
+          <Palette className="w-4 h-4 mr-2" />
+          <ThemeSwitcher />
+        </Button>
+        
         <Button 
           variant="ghost" 
           className="w-full justify-start hover:bg-sidebar-accent"

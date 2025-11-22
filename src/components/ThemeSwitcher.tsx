@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Palette } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,10 +36,7 @@ export function ThemeSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-2">
-          <Palette className="w-4 h-4" />
-          Theme
-        </Button>
+        <span className="flex-1 text-left">Theme</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
         {themes.map((theme) => (
