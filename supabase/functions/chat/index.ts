@@ -93,6 +93,12 @@ serve(async (req) => {
     
     const isOwner = roleData?.role === 'owner'
 
+    // Log activity - Create admin client for logging (bypasses RLS)
+    const adminClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
     // Rate limiting for non-owner users
     if (!isOwner) {
       // Get app settings for rate limits
@@ -167,6 +173,12 @@ serve(async (req) => {
       }
     } else {
       console.log('👑 Owner request - bypassing rate limits')
+      await adminClient.from('activity_logs').insert({
+        event_type: 'owner_request',
+        event_data: { message: 'Owner bypassed rate limits' },
+        user_id: user.id,
+        severity: 'info'
+      })
     }
 
     // Get or create conversation
@@ -221,6 +233,17 @@ serve(async (req) => {
       
       if (convError) throw convError
       conversation = newConversation
+      
+      // Log new conversation
+      await adminClient.from('activity_logs').insert({
+        event_type: 'conversation_created',
+        event_data: { 
+          conversation_id: newConversation.id,
+          title: title
+        },
+        user_id: user.id,
+        severity: 'success'
+      })
     }
 
     // Save user message with attachments
@@ -235,6 +258,19 @@ serve(async (req) => {
       })
 
     if (userMessageError) throw userMessageError
+    
+    // Log message sent
+    await adminClient.from('activity_logs').insert({
+      event_type: 'message_sent',
+      event_data: { 
+        conversation_id: conversation.id,
+        message_length: message.length,
+        attachments_count: attachments.length,
+        has_images: attachments.some(a => a.type.startsWith('image/'))
+      },
+      user_id: user.id,
+      severity: 'info'
+    })
 
     // Get conversation history for context
     const { data: messageHistory } = await supabaseClient
@@ -402,6 +438,19 @@ Be helpful and provide practical, working solutions. Remember: ALWAYS respond in
     console.log(`🤖 Model Selection: ${hasImages ? 'VISION' : 'TEXT'} model (${modelToUse})`)
     console.log(`📎 Current message has ${attachments.length} attachments, ${imageContents.length} images`)
     
+    // Log model selection
+    await adminClient.from('activity_logs').insert({
+      event_type: 'model_selected',
+      event_data: { 
+        model: modelToUse,
+        reason: hasImages ? 'Has images' : 'Text only',
+        attachments_count: attachments.length,
+        images_count: imageContents.length
+      },
+      user_id: user.id,
+      severity: 'info'
+    })
+    
     // Call Ollama Cloud API using OpenAI-compatible endpoint
     const ollamaResponse = await fetch('https://ollama.com/v1/chat/completions', {
       method: 'POST',
@@ -429,6 +478,18 @@ Be helpful and provide practical, working solutions. Remember: ALWAYS respond in
     
     console.log(`✅ Response generated using ${modelToUse} (${assistantMessage.length} chars)`)
     console.log(`🔄 Next message will auto-select model based on attachments`)
+    
+    // Log response generated
+    await adminClient.from('activity_logs').insert({
+      event_type: 'response_generated',
+      event_data: { 
+        model: modelToUse,
+        response_length: assistantMessage.length,
+        conversation_id: conversation.id
+      },
+      user_id: user.id,
+      severity: 'success'
+    })
 
     // Check for tool calls and execute them only if tools are enabled
     if (deepThinkEnabled) {
