@@ -1,7 +1,7 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Copy, ThumbsUp, ThumbsDown, User, Sparkles, File, Download } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from 'react-markdown';
 import { CodeBlock } from "./CodeBlock";
@@ -26,6 +26,7 @@ interface MessageBubbleProps {
 
 export function MessageBubble({ message }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const isUser = message.role === "user";
 
   const handleCopy = async () => {
@@ -34,12 +35,31 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const getFileUrl = (path: string) => {
-    const { data } = supabase.storage
-      .from('chat-attachments')
-      .getPublicUrl(path);
-    return data.publicUrl;
-  };
+  // Load signed URLs for images
+  useEffect(() => {
+    const loadImageUrls = async () => {
+      if (!message.attachments) return;
+      
+      const imageAttachments = message.attachments.filter(att => att.type.startsWith('image/'));
+      if (imageAttachments.length === 0) return;
+
+      const urlMap: Record<string, string> = {};
+      
+      for (const attachment of imageAttachments) {
+        const { data, error } = await supabase.storage
+          .from('chat-attachments')
+          .createSignedUrl(attachment.path, 3600); // 1 hour expiry
+        
+        if (data && !error) {
+          urlMap[attachment.path] = data.signedUrl;
+        }
+      }
+      
+      setImageUrls(urlMap);
+    };
+
+    loadImageUrls();
+  }, [message.attachments]);
 
   const handleDownloadAttachment = async (path: string, name: string) => {
     try {
@@ -103,10 +123,13 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                   const isImage = isImageFile(attachment.type);
                   
                   if (isImage) {
+                    const imageUrl = imageUrls[attachment.path];
+                    if (!imageUrl) return null;
+                    
                     return (
                       <div key={index} className="rounded-lg overflow-hidden border border-border">
                         <img
-                          src={getFileUrl(attachment.path)}
+                          src={imageUrl}
                           alt={attachment.name}
                           className="max-w-full h-auto max-h-96 object-contain"
                         />
@@ -208,10 +231,13 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                       const isImage = isImageFile(attachment.type);
                       
                       if (isImage) {
+                        const imageUrl = imageUrls[attachment.path];
+                        if (!imageUrl) return null;
+                        
                         return (
                           <div key={index} className="rounded-lg overflow-hidden border border-border">
                             <img
-                              src={getFileUrl(attachment.path)}
+                              src={imageUrl}
                               alt={attachment.name}
                               className="max-w-full h-auto max-h-96 object-contain"
                             />
