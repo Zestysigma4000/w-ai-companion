@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Settings, Database, Users, Activity, Shield } from "lucide-react";
+import { Settings, Database, Users, Activity, Shield, ArrowLeft, Terminal } from "lucide-react";
 
 interface AppSettings {
   rate_limit_enabled: boolean;
@@ -24,6 +25,13 @@ interface UserStats {
   activeToday: number;
   totalMessages: number;
   totalConversations: number;
+}
+
+interface ConsoleLog {
+  id: string;
+  timestamp: string;
+  type: 'info' | 'success' | 'error' | 'warning';
+  message: string;
 }
 
 const Developer = () => {
@@ -45,10 +53,36 @@ const Developer = () => {
     totalMessages: 0,
     totalConversations: 0,
   });
+  const [consoleLogs, setConsoleLogs] = useState<ConsoleLog[]>([]);
 
   useEffect(() => {
     checkOwnerStatus();
+    
+    // Set up realtime logging
+    addLog('info', 'Developer dashboard initialized');
+    
+    // Listen to database changes
+    const channel = supabase
+      .channel('developer-logs')
+      .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+        addLog('info', `Database ${payload.eventType}: ${payload.table}`);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
+
+  const addLog = (type: ConsoleLog['type'], message: string) => {
+    const newLog: ConsoleLog = {
+      id: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      type,
+      message
+    };
+    setConsoleLogs(prev => [newLog, ...prev].slice(0, 100)); // Keep last 100 logs
+  };
 
   const checkOwnerStatus = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -77,6 +111,7 @@ const Developer = () => {
   };
 
   const loadSettings = async () => {
+    addLog('info', 'Loading app settings...');
     const { data } = await supabase
       .from("app_settings")
       .select("key, value");
@@ -87,10 +122,13 @@ const Developer = () => {
         settingsObj[setting.key] = setting.value;
       });
       setSettings(settingsObj);
+      addLog('success', 'Settings loaded successfully');
     }
   };
 
   const loadStats = async () => {
+    addLog('info', 'Loading statistics...');
+    
     // Get total users
     const { count: totalUsers } = await supabase
       .from("user_roles")
@@ -120,10 +158,13 @@ const Developer = () => {
       totalMessages: totalMessages || 0,
       totalConversations: totalConversations || 0,
     });
+    
+    addLog('success', `Statistics loaded: ${totalUsers} users, ${totalMessages} messages`);
   };
 
   const handleSaveSettings = async () => {
     setSaving(true);
+    addLog('info', 'Saving settings...');
     try {
       const updates = Object.entries(settings).map(([key, value]) => ({
         key,
@@ -137,8 +178,10 @@ const Developer = () => {
       }
 
       toast.success("Settings saved successfully");
+      addLog('success', 'Settings saved successfully');
     } catch (error) {
       toast.error("Failed to save settings");
+      addLog('error', `Failed to save settings: ${error}`);
       console.error(error);
     } finally {
       setSaving(false);
@@ -158,33 +201,47 @@ const Developer = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Developer Dashboard</h1>
-        <p className="text-muted-foreground">
-          Manage your AI chatbot application settings and monitor usage
-        </p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <ScrollArea className="h-screen">
+        <div className="container mx-auto p-6 max-w-7xl">
+          <div className="mb-8">
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate("/")}
+              className="mb-4"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Chat
+            </Button>
+            <h1 className="text-4xl font-bold mb-2">Developer Dashboard</h1>
+            <p className="text-muted-foreground">
+              Manage your AI chatbot application settings and monitor usage
+            </p>
+          </div>
 
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="overview">
-            <Activity className="w-4 h-4 mr-2" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="settings">
-            <Settings className="w-4 h-4 mr-2" />
-            Settings
-          </TabsTrigger>
-          <TabsTrigger value="users">
-            <Users className="w-4 h-4 mr-2" />
-            Users
-          </TabsTrigger>
-          <TabsTrigger value="security">
-            <Shield className="w-4 h-4 mr-2" />
-            Security
-          </TabsTrigger>
-        </TabsList>
+          <Tabs defaultValue="overview" className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="overview">
+                <Activity className="w-4 h-4 mr-2" />
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="console">
+                <Terminal className="w-4 h-4 mr-2" />
+                Console
+              </TabsTrigger>
+              <TabsTrigger value="settings">
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </TabsTrigger>
+              <TabsTrigger value="users">
+                <Users className="w-4 h-4 mr-2" />
+                Users
+              </TabsTrigger>
+              <TabsTrigger value="security">
+                <Shield className="w-4 h-4 mr-2" />
+                Security
+              </TabsTrigger>
+            </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -266,6 +323,58 @@ const Developer = () => {
                   2 Active (deepseek-v3.1, qwen3-vl)
                 </span>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="console" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>System Console</CardTitle>
+              <CardDescription>
+                Real-time activity log and database events
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-between items-center mb-4">
+                <p className="text-sm text-muted-foreground">
+                  {consoleLogs.length} log entries
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    setConsoleLogs([]);
+                    addLog('info', 'Console cleared');
+                  }}
+                >
+                  Clear Console
+                </Button>
+              </div>
+              <ScrollArea className="h-[500px] w-full rounded-md border bg-card/50 p-4">
+                <div className="space-y-2 font-mono text-xs">
+                  {consoleLogs.length === 0 ? (
+                    <p className="text-muted-foreground">No logs yet...</p>
+                  ) : (
+                    consoleLogs.map((log) => (
+                      <div key={log.id} className="flex gap-2 items-start">
+                        <span className="text-muted-foreground shrink-0">
+                          {new Date(log.timestamp).toLocaleTimeString()}
+                        </span>
+                        <span className={`shrink-0 font-semibold ${
+                          log.type === 'error' ? 'text-destructive' :
+                          log.type === 'success' ? 'text-green-500' :
+                          log.type === 'warning' ? 'text-yellow-500' :
+                          'text-blue-500'
+                        }`}>
+                          [{log.type.toUpperCase()}]
+                        </span>
+                        <span className="break-all">{log.message}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
             </CardContent>
           </Card>
         </TabsContent>
@@ -436,6 +545,8 @@ const Developer = () => {
           </Card>
         </TabsContent>
       </Tabs>
+        </div>
+      </ScrollArea>
     </div>
   );
 };
