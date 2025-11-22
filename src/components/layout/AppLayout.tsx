@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { ConversationsProvider } from "@/hooks/useConversations";
 
 export function AppLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(false); // Start closed on mobile
+  const [sidebarOpen, setSidebarOpen] = useState(true); // Start open on desktop
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -61,23 +61,21 @@ export function AppLayout() {
             </div>
           </div>
   
-          {/* Sidebar - Overlay on mobile, fixed on desktop */}
+          {/* Sidebar - Overlay on mobile, static on desktop */}
           {sidebarOpen && (
             <>
               {/* Mobile overlay backdrop */}
               <div 
-                className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                className="fixed inset-0 bg-black/50 z-40 md:hidden pt-14"
                 onClick={() => setSidebarOpen(false)}
               />
-              {/* Sidebar */}
-              <div className="fixed left-0 top-14 bottom-0 z-40 md:relative md:top-0">
-                <AppSidebar />
-              </div>
+              {/* Sidebar - fixed on mobile, static on desktop */}
+              <AppSidebar />
             </>
           )}
           
           {/* Main Content Area */}
-          <main className="flex-1 pt-14 transition-all duration-300">
+          <main className="flex-1 pt-14 transition-all duration-300 min-w-0">
             <ChatInterface />
           </main>
         </div>
