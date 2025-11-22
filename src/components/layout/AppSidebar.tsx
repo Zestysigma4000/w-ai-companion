@@ -93,7 +93,7 @@ export function AppSidebar() {
     : conversations.slice(0, 4);
 
   return (
-    <div className="fixed md:static left-0 top-14 md:top-0 bottom-0 w-64 bg-sidebar border-r border-sidebar-border z-40 flex flex-col">
+    <div className="fixed md:relative left-0 top-14 md:top-0 bottom-0 w-64 bg-sidebar border-r border-sidebar-border z-40 flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-sidebar-border flex-shrink-0">
         <div className="flex items-center gap-3 mb-4">

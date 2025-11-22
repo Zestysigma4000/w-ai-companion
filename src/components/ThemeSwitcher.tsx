@@ -7,11 +7,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const themes = [
-  { name: "Dark Blue", value: "dark-blue", label: "Original Dark" },
-  { name: "Light", value: "light", label: "Light Mode" },
-  { name: "Dark Purple", value: "dark-purple", label: "Purple Dark" },
-  { name: "Ocean", value: "ocean", label: "Ocean Blue" },
-  { name: "Forest", value: "forest", label: "Forest Green" },
+  { name: "Emerald Night", value: "dark-blue", label: "Emerald Night" },
+  { name: "Crimson Dusk", value: "crimson", label: "Crimson Dusk" },
+  { name: "Sapphire Deep", value: "sapphire", label: "Sapphire Deep" },
+  { name: "Amber Shadow", value: "amber", label: "Amber Shadow" },
+  { name: "Violet Noir", value: "violet", label: "Violet Noir" },
 ];
 
 export function ThemeSwitcher() {
