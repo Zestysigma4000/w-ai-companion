@@ -186,6 +186,8 @@ export function ChatInterface() {
       setMessages(prev => [...prev, userMessage]);
 
       // Call the AI backend via Supabase function
+      console.log(`📤 Sending message with ${uploadedFiles.length} attachments (${uploadedFiles.filter(f => f.type.startsWith('image/')).length} images)`);
+      
       const { data, error } = await supabase.functions.invoke('chat', {
         body: {
           message: currentInput,
@@ -198,74 +200,26 @@ export function ChatInterface() {
         }
       });
 
+      console.log('📥 Response received from edge function');
+
       if (error) {
         // Handle specific error codes
         if (error.message?.includes('CONVERSATION_NOT_FOUND') || error.message?.includes('Conversation not found')) {
-          console.log('Conversation not found, resetting and retrying...');
+          console.log('Conversation not found, clearing conversation ID...');
           setCurrentConversationId(null);
-          // Retry without conversation ID
-          const retryBody = {
-            message: currentInput,
-            conversationId: null,
-            attachments: uploadedFiles,
-            deepThinkEnabled
+          await refreshConversations();
+          
+          // Remove the user message we just added since it failed
+          setMessages(prev => prev.filter(m => m.id !== userMessage.id));
+          
+          // Show error and let user retry
+          const errorResponse: Message = {
+            id: (Date.now() + 1).toString(),
+            content: "That conversation no longer exists. Please send your message again to start a new conversation.",
+            role: "assistant",
+            timestamp: new Date(),
           };
-          const { data: retryData, error: retryError } = await supabase.functions.invoke('chat', {
-            body: retryBody,
-            headers: {
-              Authorization: `Bearer ${session.access_token}`
-            }
-          });
-          
-          if (retryError) {
-            throw retryError;
-          }
-          
-          // Update with new conversation ID
-          if (retryData.conversationId) {
-            setCurrentConversationId(retryData.conversationId);
-            await refreshConversations();
-          }
-          
-          // Continue with the response
-          const typingMessageId = (Date.now() + 1).toString();
-          const fullText: string = retryData.response || '';
-
-          setMessages(prev => [
-            ...prev,
-            {
-              id: typingMessageId,
-              content: '',
-              role: 'assistant',
-              timestamp: new Date(),
-              isTyping: true,
-            },
-          ]);
-
-          const elapsedTime = Date.now() - startTime;
-          const remainingTime = Math.max(0, minTypingDuration - elapsedTime);
-          if (remainingTime > 0) {
-            await new Promise(resolve => setTimeout(resolve, remainingTime));
-          }
-
-          await new Promise<void>((resolve) => {
-            const speed = Math.max(8, Math.floor(1200 / Math.max(1, fullText.length))); // even faster
-            let i = 0;
-            const interval = setInterval(() => {
-              i = Math.min(i + 2, fullText.length); // 2 characters at a time
-              setMessages(prev => prev.map(m =>
-                m.id === typingMessageId ? { ...m, content: fullText.slice(0, i) } : m
-              ));
-              if (i >= fullText.length) {
-                clearInterval(interval);
-                setMessages(prev => prev.map(m =>
-                  m.id === typingMessageId ? { ...m, isTyping: false } : m
-                ));
-                resolve();
-              }
-            }, speed);
-          });
-          
+          setMessages(prev => [...prev, errorResponse]);
           setIsLoading(false);
           return;
         }

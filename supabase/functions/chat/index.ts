@@ -341,6 +341,9 @@ Be helpful and provide practical, working solutions. Remember: ALWAYS respond in
 
     const ollamaData = await ollamaResponse.json()
     let assistantMessage = ollamaData.choices[0].message.content
+    
+    console.log(`✅ Response generated using ${modelToUse} (${assistantMessage.length} chars)`)
+    console.log(`🔄 Next message will auto-select model based on attachments`)
 
     // Check for tool calls and execute them only if tools are enabled
     if (deepThinkEnabled) {
