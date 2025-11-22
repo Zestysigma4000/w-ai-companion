@@ -67,7 +67,7 @@ export function FileAttachment({ onFileSelect }: FileAttachmentProps) {
         multiple
         className="hidden"
         onChange={handleFileChange}
-        accept="image/*,video/*,audio/*,text/plain,text/markdown,application/pdf,application/zip,application/x-zip-compressed,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.zip,.rar,.7z,.tar,.gz,.js,.jsx,.ts,.tsx,.py,.java,.cpp,.c,.h,.css,.scss,.html,.xml,.yaml,.yml,.svg,.webp,.heic"
       />
     </>
   );
