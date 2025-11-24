@@ -47,14 +47,14 @@ export function ChatInterface() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [deepThinkEnabled, setDeepThinkEnabled] = useState(false);
   const [forceWebSearch, setForceWebSearch] = useState(false);
-  const [forceCodeExecution, setForceCodeExecution] = useState(false);
   const [toolDetails, setToolDetails] = useState<{ type: string; details: string } | null>(null);
+  const [typingPreview, setTypingPreview] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [dragCounter, setDragCounter] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const [queueLength, setQueueLength] = useState(0);
-  const [agentStatus, setAgentStatus] = useState<string | null>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -97,11 +97,22 @@ export function ChatInterface() {
     };
   }, [messages.length, isLoading]);
 
-  // Auto-resize textarea
+  // Auto-resize textarea and handle typing preview
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+    }
+    
+    // Send typing preview to backend after user stops typing
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    if (inputValue.trim().length > 3) {
+      typingTimeoutRef.current = setTimeout(() => {
+        setTypingPreview(inputValue);
+      }, 1000); // Wait 1 second after user stops typing
     }
   }, [inputValue]);
 
@@ -202,8 +213,6 @@ export function ChatInterface() {
     // Track start time for minimum typing animation duration
     const startTime = Date.now();
     const minTypingDuration = 800; // milliseconds
-    
-    setAgentStatus('Processing your request...');
 
     // Define the send operation
     const sendOperation = async () => {
@@ -287,7 +296,6 @@ export function ChatInterface() {
       // Call the AI backend via Supabase function with retry
       console.log(`📤 Sending message with ${uploadedFiles.length} attachments (${uploadedFiles.filter(f => f.type.startsWith('image/')).length} images)`);
       
-      setAgentStatus('Thinking...');
       setToolDetails(null);
       
       const aiResult = await retryWithBackoff(
@@ -298,7 +306,7 @@ export function ChatInterface() {
             attachments: uploadedFiles,
             deepThinkEnabled,
             forceWebSearch,
-            forceCodeExecution
+            typingPreview: typingPreview // Send typing preview for faster AI response
           },
           headers: {
             Authorization: `Bearer ${session.access_token}`
@@ -382,9 +390,9 @@ export function ChatInterface() {
         setToolDetails(data.toolDetails);
       }
       
-      // Reset force flags
+      // Reset force flags and typing preview
       setForceWebSearch(false);
-      setForceCodeExecution(false);
+      setTypingPreview("");
       
       // Typewriter effect: progressively reveal the AI response
       const typingMessageId = (Date.now() + 1).toString();
@@ -409,38 +417,21 @@ export function ChatInterface() {
         await new Promise(resolve => setTimeout(resolve, remainingTime));
       }
 
-      // Detect tool signals and set animation BEFORE typewriter effect
-      let displayText = fullText
-      let currentToolAnimation = 'Generating response...'
-      
-      if (fullText.includes('[SEARCHING_WEB]')) {
-        currentToolAnimation = 'Searching the web...'
-        displayText = fullText.replace(/\[SEARCHING_WEB\]\s*/g, '')
-      } else if (fullText.includes('[EXECUTING_CODE]')) {
-        currentToolAnimation = 'Executing code...'
-        displayText = fullText.replace(/\[EXECUTING_CODE\]\s*/g, '')
-      } else if (fullText.includes('[DEEP_THINKING]')) {
-        currentToolAnimation = 'Deep thinking...'
-        displayText = fullText.replace(/\[DEEP_THINKING\]\s*/g, '')
-      }
-      
-      setAgentStatus(currentToolAnimation);
-
       // Animate content reveal
       await new Promise<void>((resolve) => {
-        const speed = Math.max(8, Math.floor(1200 / Math.max(1, displayText.length)));
+        const speed = Math.max(8, Math.floor(1200 / Math.max(1, fullText.length)));
         let i = 0;
         const interval = setInterval(() => {
-          i = Math.min(i + 2, displayText.length);
+          i = Math.min(i + 2, fullText.length);
           setMessages(prev => prev.map(m =>
-            m.id === typingMessageId ? { ...m, content: displayText.slice(0, i) } : m
+            m.id === typingMessageId ? { ...m, content: fullText.slice(0, i) } : m
           ));
-          if (i >= displayText.length) {
+          if (i >= fullText.length) {
             clearInterval(interval);
             setMessages(prev => prev.map(m =>
               m.id === typingMessageId ? { ...m, isTyping: false } : m
             ));
-            setAgentStatus(null);
+            setToolDetails(null);
             resolve();
           }
         }, speed);
@@ -489,7 +480,7 @@ export function ChatInterface() {
     } finally {
       setIsLoading(false);
       setUploadingFiles(false);
-      setAgentStatus(null);
+      setToolDetails(null);
     }
   };
 
@@ -629,16 +620,15 @@ export function ChatInterface() {
             <MessageBubble key={message.id} message={message} />
           ))}
           
-          {/* Dynamic Thinking animation based on agent activity */}
+          {/* Dynamic Thinking animation based on tool activity */}
           {isLoading && messages[messages.length - 1]?.role === "user" && (
             <div className="flex items-start gap-3 animate-fade-in">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                 {(() => {
-                  const status = agentStatus?.toLowerCase() || '';
-                  const isSearching = status.includes('search');
-                  const isExecuting = status.includes('code') || status.includes('execut');
-                  const isThinking = status.includes('think') && !isSearching && !isExecuting;
-                  const isGenerating = status.includes('generat') || status.includes('analyz') || status.includes('synthesiz');
+                  const details = toolDetails?.details?.toLowerCase() || '';
+                  const isSearching = details.includes('search');
+                  const isExecuting = details.includes('code') || details.includes('execut');
+                  const isThinking = details.includes('think');
                   
                   if (isSearching) {
                     return (
@@ -657,8 +647,8 @@ export function ChatInterface() {
                       </div>
                     );
                   }
-                  if (isGenerating) {
-                    return <Sparkles className="w-4 h-4 text-primary animate-pulse" />;
+                  if (isThinking) {
+                    return <Brain className="w-4 h-4 text-primary animate-pulse" />;
                   }
                   // Default thinking animation
                   return <Brain className="w-4 h-4 text-primary" />;
@@ -670,7 +660,7 @@ export function ChatInterface() {
                   <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                   <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                  <span className="text-sm text-muted-foreground ml-2">
-                    {agentStatus || 'Thinking...'}
+                    Thinking...
                   </span>
                 </div>
                 
@@ -682,7 +672,7 @@ export function ChatInterface() {
                 )}
                 
                 {/* Progress bar for searching */}
-                {agentStatus?.toLowerCase().includes('search') && (
+                {toolDetails?.type === 'search' && (
                   <div className="mt-3 w-full h-1 bg-primary/20 rounded-full overflow-hidden">
                     <div className="h-full bg-primary w-2/5 animate-[shimmer_1.5s_ease-in-out_infinite]" />
                   </div>
@@ -779,29 +769,12 @@ export function ChatInterface() {
               <Button
                 variant={forceWebSearch ? "default" : "ghost"}
                 size="sm"
-                onClick={() => {
-                  setForceWebSearch(!forceWebSearch);
-                  if (!forceWebSearch) setForceCodeExecution(false);
-                }}
+                onClick={() => setForceWebSearch(!forceWebSearch)}
                 aria-pressed={forceWebSearch}
                 title="Force Web Search"
                 className="text-muted-foreground hover:text-foreground"
               >
                 <Search className="w-4 h-4" />
-              </Button>
-
-              <Button
-                variant={forceCodeExecution ? "default" : "ghost"}
-                size="sm"
-                onClick={() => {
-                  setForceCodeExecution(!forceCodeExecution);
-                  if (!forceCodeExecution) setForceWebSearch(false);
-                }}
-                aria-pressed={forceCodeExecution}
-                title="Force Code Execution"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <Code className="w-4 h-4" />
               </Button>
 
               <Button

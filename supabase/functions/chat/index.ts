@@ -23,7 +23,7 @@ const chatRequestSchema = z.object({
   })).optional(),
   deepThinkEnabled: z.boolean().optional().default(false),
   forceWebSearch: z.boolean().optional().default(false),
-  forceCodeExecution: z.boolean().optional().default(false)
+  typingPreview: z.string().optional() // For typing preview feature
 })
 
 serve(async (req) => {
@@ -61,7 +61,7 @@ serve(async (req) => {
       )
     }
     
-    const { message, conversationId, attachments = [], deepThinkEnabled, forceWebSearch, forceCodeExecution } = validationResult.data
+    const { message, conversationId, attachments = [], deepThinkEnabled, forceWebSearch, typingPreview } = validationResult.data
     
     // Initialize Supabase client with user's token
     const supabaseClient = createClient(
@@ -520,7 +520,6 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
     let maxIterations = 5;
     let iteration = 0;
     const toolsUsed: string[] = [];
-    let signalPrefixes = '';
     let firstToolDetails: { type: string; details: string } | null = null;
     
     // Handle forced tools
@@ -529,14 +528,6 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
       assistantMessage = `<tool_call>
 <tool_name>web_search</tool_name>
 <parameters>{"query": "${message}"}</parameters>
-</tool_call>
-
-` + assistantMessage;
-    } else if (forceCodeExecution && !assistantMessage.includes('<tool_call>')) {
-      // Prepend a code execution tool call  
-      assistantMessage = `<tool_call>
-<tool_name>execute_code</tool_name>
-<parameters>{"code": "${message}", "language": "javascript"}</parameters>
 </tool_call>
 
 ` + assistantMessage;
@@ -576,22 +567,19 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
         if (toolName === 'web_search') {
           firstToolDetails = {
             type: 'search',
-            details: `Searching for: "${parameters.query}"`
+            details: `🔍 Searching the web for: "${parameters.query}"`
           };
-          signalPrefixes += '[SEARCHING_WEB] ';
         } else if (toolName === 'execute_code') {
           const lang = parameters.language || 'javascript';
           firstToolDetails = {
             type: 'code',
-            details: `Executing ${lang} code`
+            details: `⚙️ Executing ${lang} code`
           };
-          signalPrefixes += '[EXECUTING_CODE] ';
         } else if (toolName === 'deep_think') {
           firstToolDetails = {
             type: 'think',
-            details: `Deep thinking about: ${parameters.problem?.substring(0, 50)}...`
+            details: `🧠 Deep thinking: ${parameters.problem?.substring(0, 80)}...`
           };
-          signalPrefixes += '[DEEP_THINKING] ';
         }
       }
       
@@ -781,10 +769,7 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
       }
     }
 
-    // Add signal prefixes to the response for frontend animation
-    const responseWithSignals = signalPrefixes + assistantMessage;
-    
-    // Save assistant message (without signal prefixes for clean history)
+    // Save assistant message
     const { error: assistantMessageError } = await supabaseClient
       .from('messages')
       .insert({
@@ -798,7 +783,7 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
 
     return new Response(
       JSON.stringify({
-        response: responseWithSignals,
+        response: assistantMessage,
         conversationId: conversation.id,
         toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined,
         toolDetails: firstToolDetails
