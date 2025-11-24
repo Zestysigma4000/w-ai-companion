@@ -373,14 +373,19 @@ export function ChatInterface() {
 
       // Update agent status based on tools used
       if (data.toolsUsed && data.toolsUsed.length > 0) {
-        const lastTool = data.toolsUsed[data.toolsUsed.length - 1];
-        if (lastTool === 'web_search') {
-          setAgentStatus('Analyzing search results...');
-        } else if (lastTool === 'execute_code') {
-          setAgentStatus('Processing code output...');
-        } else if (lastTool === 'deep_think') {
-          setAgentStatus('Synthesizing insights...');
+        // Show status for each tool as it's used
+        for (const tool of data.toolsUsed) {
+          if (tool === 'web_search') {
+            setAgentStatus('Searching the web...');
+          } else if (tool === 'execute_code') {
+            setAgentStatus('Executing code...');
+          } else if (tool === 'deep_think') {
+            setAgentStatus('Deep thinking...');
+          }
+          // Brief delay to show each status
+          await new Promise(resolve => setTimeout(resolve, 800));
         }
+        setAgentStatus('Generating response...');
       } else {
         setAgentStatus('Generating response...');
       }
