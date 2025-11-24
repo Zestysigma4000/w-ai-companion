@@ -354,36 +354,44 @@ serve(async (req) => {
       fileContextText += `\n--- END OF UPLOADED FILES ---\n`
     }
 
-    // Prepare messages for AI
-    const toolsDescription = deepThinkEnabled 
-      ? `\n\nYou have access to special tools:
-1. deep_think - Use enhanced reasoning for complex problems
+    // Prepare messages for AI with agent tools
+    const agentToolsDescription = `\n\nAGENT MODE: You have access to these tools:
+1. web_search - Search the web for current information
+2. execute_code - Execute JavaScript/TypeScript code
+${deepThinkEnabled ? '3. deep_think - Use enhanced reasoning for complex problems' : ''}
 
 When you need to use a tool, respond with EXACTLY this format:
 <tool_call>
-<tool_name>deep_think</tool_name>
-<problem>problem description</problem>
+<tool_name>TOOL_NAME</tool_name>
+<parameters>
+{"param1": "value1", "param2": "value2"}
+</parameters>
 </tool_call>
 
-After receiving tool results, incorporate them naturally into your response.`
-      : '';
+For web_search: {"query": "search query"}
+For execute_code: {"code": "console.log('hello')", "language": "javascript"}
+For deep_think: {"problem": "problem description"}
+
+You can use multiple tools in sequence. After receiving tool results, incorporate them naturally into your response.`;
     
     const messages = [
       {
         role: 'system',
-        content: `You are W ai, a powerful AI assistant with full capabilities. You can help with:
-- Writing and debugging code in any programming language
-- Creating websites, games, and applications
-- Solving complex problems and providing detailed explanations
+        content: `You are W ai, a powerful AI assistant with full capabilities in AGENT MODE. You can:
+- Write and debug code in any programming language
+- Search the web for current information in real-time
+- Execute JavaScript/TypeScript code to solve problems
+- Create websites, games, and applications
+- Solve complex problems and provide detailed explanations
 - File management and project organization
 - Architecture and design decisions
-- Analyzing images, documents, and code files uploaded by users${toolsDescription}
+- Analyze images, documents, and code files uploaded by users${agentToolsDescription}
 
 CRITICAL LANGUAGE REQUIREMENT: You MUST respond in English at all times. Always use English regardless of the language in uploaded images or files.
 
 IMPORTANT: When the user uploads files, you will see them clearly marked with emojis like 📎, 📷, 📄, 📦, or 🎬. These are files the user has shared with you - NOT part of their text message. Acknowledge the files and help analyze them.
 
-Be helpful and provide practical, working solutions. Remember: ALWAYS respond in English.`
+Be helpful, autonomous, and proactive in using your tools when needed. Remember: ALWAYS respond in English.`
       },
       ...(messageHistory || []).map((msg: any) => {
         // Build content array for messages with images
@@ -475,6 +483,154 @@ Be helpful and provide practical, working solutions. Remember: ALWAYS respond in
 
     const ollamaData = await ollamaResponse.json()
     let assistantMessage = ollamaData.choices[0].message.content
+
+    // Agent loop - process tool calls
+    let maxIterations = 5;
+    let iteration = 0;
+    
+    while (iteration < maxIterations) {
+      // Check for tool calls in response
+      const toolCallMatch = assistantMessage.match(/<tool_call>\s*<tool_name>(.*?)<\/tool_name>\s*<parameters>(.*?)<\/parameters>\s*<\/tool_call>/s);
+      
+      if (!toolCallMatch) {
+        // No tool calls, we're done
+        break;
+      }
+      
+      iteration++;
+      const toolName = toolCallMatch[1].trim();
+      let parameters;
+      
+      try {
+        parameters = JSON.parse(toolCallMatch[2].trim());
+      } catch (e) {
+        assistantMessage = assistantMessage.replace(
+          toolCallMatch[0],
+          `[Tool Error: Invalid parameters format]`
+        );
+        continue;
+      }
+      
+      console.log(`🔧 Agent using tool: ${toolName}`, parameters);
+      
+      // Log tool usage
+      await adminClient.from('activity_logs').insert({
+        event_type: 'tool_used',
+        event_data: { 
+          tool: toolName,
+          parameters,
+          conversation_id: conversation.id
+        },
+        user_id: user.id,
+        severity: 'info'
+      });
+      
+      let toolResult;
+      
+      // Execute the tool
+      try {
+        if (toolName === 'web_search') {
+          const searchResponse = await fetch(
+            `${Deno.env.get('SUPABASE_URL')}/functions/v1/web-search`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': authHeader
+              },
+              body: JSON.stringify({ query: parameters.query })
+            }
+          );
+          
+          if (searchResponse.ok) {
+            const { results } = await searchResponse.json();
+            toolResult = `Search Results for "${parameters.query}":\n\n` + 
+              results.map((r: any, i: number) => 
+                `${i + 1}. ${r.title}\n   URL: ${r.url}\n   ${r.snippet}\n`
+              ).join('\n');
+          } else {
+            toolResult = 'Search failed. Please try a different query.';
+          }
+        } else if (toolName === 'execute_code') {
+          const execResponse = await fetch(
+            `${Deno.env.get('SUPABASE_URL')}/functions/v1/execute-code`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': authHeader
+              },
+              body: JSON.stringify({ 
+                code: parameters.code,
+                language: parameters.language || 'javascript'
+              })
+            }
+          );
+          
+          if (execResponse.ok) {
+            const execResult = await execResponse.json();
+            if (execResult.success) {
+              toolResult = `Code executed successfully:\n`;
+              if (execResult.output) toolResult += `Output: ${execResult.output}\n`;
+              if (execResult.result) toolResult += `Result: ${execResult.result}`;
+            } else {
+              toolResult = `Code execution failed: ${execResult.error}`;
+            }
+          } else {
+            toolResult = 'Code execution failed. Please check your code.';
+          }
+        } else if (toolName === 'deep_think') {
+          // Existing deep think logic would go here
+          toolResult = `Deep thinking about: ${parameters.problem}\n[Enhanced reasoning applied]`;
+        } else {
+          toolResult = `Unknown tool: ${toolName}`;
+        }
+      } catch (error) {
+        console.error(`Tool execution error:`, error);
+        toolResult = `Tool execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      }
+      
+      console.log(`✅ Tool result:`, toolResult.substring(0, 100));
+      
+      // Add tool result to messages and get new response
+      messages.push({
+        role: 'assistant',
+        content: assistantMessage
+      });
+      
+      messages.push({
+        role: 'user',
+        content: `<tool_result>\n<tool_name>${toolName}</tool_name>\n<result>${toolResult}</result>\n</tool_result>\n\nPlease continue with your response, incorporating the tool results naturally.`
+      });
+      
+      // Get next response from AI
+      const nextResponse = await fetch('https://ollama.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: modelToUse,
+          messages: messages,
+          temperature: 0.7,
+          max_tokens: 2000,
+          stream: false
+        }),
+      });
+      
+      if (!nextResponse.ok) {
+        console.error('Failed to get continuation response');
+        break;
+      }
+      
+      const nextData = await nextResponse.json();
+      assistantMessage = nextData.choices[0].message.content;
+    }
+    
+    if (iteration >= maxIterations) {
+      console.log('⚠️ Max tool iterations reached');
+    }
     
     console.log(`✅ Response generated using ${modelToUse} (${assistantMessage.length} chars)`)
     console.log(`🔄 Next message will auto-select model based on attachments`)

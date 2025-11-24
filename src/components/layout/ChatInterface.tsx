@@ -51,6 +51,7 @@ export function ChatInterface() {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const [queueLength, setQueueLength] = useState(0);
+  const [agentStatus, setAgentStatus] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -198,6 +199,8 @@ export function ChatInterface() {
     // Track start time for minimum typing animation duration
     const startTime = Date.now();
     const minTypingDuration = 800; // milliseconds
+    
+    setAgentStatus('Processing your request...');
 
     // Define the send operation
     const sendOperation = async () => {
@@ -280,6 +283,8 @@ export function ChatInterface() {
 
       // Call the AI backend via Supabase function with retry
       console.log(`📤 Sending message with ${uploadedFiles.length} attachments (${uploadedFiles.filter(f => f.type.startsWith('image/')).length} images)`);
+      
+      setAgentStatus('Thinking...');
       
       const aiResult = await retryWithBackoff(
         async () => supabase.functions.invoke('chat', {
@@ -389,6 +394,8 @@ export function ChatInterface() {
         await new Promise(resolve => setTimeout(resolve, remainingTime));
       }
 
+      setAgentStatus('Generating response...');
+
       // Animate content reveal
       await new Promise<void>((resolve) => {
         const speed = Math.max(8, Math.floor(1200 / Math.max(1, fullText.length)));
@@ -403,6 +410,7 @@ export function ChatInterface() {
             setMessages(prev => prev.map(m =>
               m.id === typingMessageId ? { ...m, isTyping: false } : m
             ));
+            setAgentStatus(null);
             resolve();
           }
         }, speed);
@@ -451,6 +459,7 @@ export function ChatInterface() {
     } finally {
       setIsLoading(false);
       setUploadingFiles(false);
+      setAgentStatus(null);
     }
   };
 
@@ -582,6 +591,20 @@ export function ChatInterface() {
               <div className="bg-muted px-4 py-2 rounded-full text-sm text-muted-foreground flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span>{queueLength} message{queueLength > 1 ? 's' : ''} pending</span>
+              </div>
+            </div>
+          )}
+
+          {/* Agent Status Indicator */}
+          {agentStatus && (
+            <div className="flex justify-center">
+              <div className="bg-primary/10 px-4 py-2 rounded-full text-sm text-primary font-medium flex items-center gap-2 border border-primary/20">
+                <div className="flex gap-1">
+                  <div className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+                <span>{agentStatus}</span>
               </div>
             </div>
           )}
