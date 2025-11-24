@@ -27,56 +27,38 @@ serve(async (req) => {
 
     let results: any[] = [];
     
-    // Use DuckDuckGo Instant Answer API - simple and reliable
+    // Use DuckDuckGo HTML search - actual web results
     try {
-      const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_redirect=1&no_html=1&skip_disambig=1`;
+      const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
       const ddgResponse = await fetch(ddgUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; SearchBot/1.0)',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         }
       });
       
       if (ddgResponse.ok) {
-        const data = await ddgResponse.json();
+        const html = await ddgResponse.text();
         
-        // Extract from Abstract
-        if (data.AbstractURL && data.Abstract && data.Abstract.length > 0) {
-          results.push({
-            title: data.Heading || query,
-            url: data.AbstractURL,
-            snippet: data.Abstract
-          });
-        }
+        // Parse HTML results using regex patterns
+        const resultRegex = /<div class="result__body">[\s\S]*?<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
         
-        // Extract from RelatedTopics
-        if (data.RelatedTopics && Array.isArray(data.RelatedTopics)) {
-          for (const topic of data.RelatedTopics) {
-            if (topic.FirstURL && topic.Text) {
-              results.push({
-                title: topic.Text.split(' - ')[0]?.substring(0, 150) || 'Result',
-                url: topic.FirstURL,
-                snippet: topic.Text.substring(0, 300)
-              });
-            }
-            // Handle nested topics
-            if (topic.Topics && Array.isArray(topic.Topics)) {
-              for (const subTopic of topic.Topics) {
-                if (subTopic.FirstURL && subTopic.Text) {
-                  results.push({
-                    title: subTopic.Text.split(' - ')[0]?.substring(0, 150) || 'Result',
-                    url: subTopic.FirstURL,
-                    snippet: subTopic.Text.substring(0, 300)
-                  });
-                }
-              }
-            }
+        let match;
+        while ((match = resultRegex.exec(html)) !== null && results.length < 8) {
+          const url = match[1].replace(/&amp;/g, '&');
+          const title = match[2].replace(/<[^>]*>/g, '').trim();
+          const snippet = match[3].replace(/<[^>]*>/g, '').trim();
+          
+          // Filter out low-quality results
+          if (url && url.startsWith('http') && title && snippet && snippet.length > 20) {
+            results.push({
+              title: title.substring(0, 200),
+              url: url,
+              snippet: snippet.substring(0, 400)
+            });
           }
         }
         
-        // Limit to 8 results
-        results = results.slice(0, 8);
-        
-        console.log(`✅ DuckDuckGo API returned ${results.length} results`);
+        console.log(`✅ DuckDuckGo HTML search returned ${results.length} results`);
       }
     } catch (error) {
       console.error('❌ Search failed:', error);
