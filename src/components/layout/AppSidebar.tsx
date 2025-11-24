@@ -157,19 +157,19 @@ export function AppSidebar() {
                   <div
                     key={conversation.id}
                     onClick={() => setCurrentConversationId(conversation.id)}
-                    className={`w-full flex items-center justify-between group h-auto p-2 rounded-md cursor-pointer transition-colors ${
+                    className={`w-full flex items-center gap-2 group h-auto p-2 rounded-md cursor-pointer transition-colors ${
                       currentConversationId === conversation.id 
                         ? 'bg-primary/10 text-primary' 
                         : 'hover:bg-sidebar-accent'
                     }`}
                   >
-                    <span className="truncate flex-1 text-left text-sm" title={conversation.title}>
-                      {conversation.title.length > 35 ? conversation.title.substring(0, 35) + '...' : conversation.title}
+                    <span className="truncate flex-1 min-w-0 text-left text-sm" title={conversation.title}>
+                      {conversation.title}
                     </span>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 w-6 p-0 hover:bg-destructive/20 hover:text-destructive shrink-0 ml-1"
+                      className="h-6 w-6 p-0 hover:bg-destructive/20 hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={(e) => handleDeleteConversation(e, conversation.id)}
                     >
                       <Trash2 className="w-3 h-3" />
