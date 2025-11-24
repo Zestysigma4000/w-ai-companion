@@ -620,61 +620,45 @@ export function ChatInterface() {
             <MessageBubble key={message.id} message={message} />
           ))}
           
-          {/* Dynamic Thinking animation based on tool activity */}
+          {/* Unified typing/tool indicator */}
           {isLoading && messages[messages.length - 1]?.role === "user" && (
             <div className="flex items-start gap-3 animate-fade-in">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                {(() => {
-                  const details = toolDetails?.details?.toLowerCase() || '';
-                  const isSearching = details.includes('search');
-                  const isExecuting = details.includes('code') || details.includes('execut');
-                  const isThinking = details.includes('think');
-                  
-                  if (isSearching) {
-                    return (
-                      <div className="relative">
-                        <Search className="w-4 h-4 text-primary animate-pulse" />
-                        <div className="absolute inset-0 animate-ping">
-                          <Search className="w-4 h-4 text-primary opacity-30" />
-                        </div>
-                      </div>
-                    );
-                  }
-                  if (isExecuting) {
-                    return (
-                      <div className="relative">
-                        <Code className="w-4 h-4 text-primary animate-bounce" />
-                      </div>
-                    );
-                  }
-                  if (isThinking) {
-                    return <Brain className="w-4 h-4 text-primary animate-pulse" />;
-                  }
-                  // Default thinking animation
-                  return <Brain className="w-4 h-4 text-primary" />;
-                })()}
+                {toolDetails?.type === 'search' ? (
+                  <Search className="w-4 h-4 text-primary animate-pulse" />
+                ) : toolDetails?.type === 'code' ? (
+                  <Code className="w-4 h-4 text-primary animate-bounce" />
+                ) : toolDetails?.type === 'think' ? (
+                  <Brain className="w-4 h-4 text-primary animate-pulse" />
+                ) : (
+                  <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+                )}
               </div>
               <div className="bg-card rounded-2xl p-4 max-w-[80%] border border-border">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                 <span className="text-sm text-muted-foreground ml-2">
-                    Thinking...
-                  </span>
-                </div>
-                
-                {/* Show tool details */}
-                {toolDetails && (
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    {toolDetails.details}
+                {toolDetails ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                    <div className="text-sm text-foreground font-medium">
+                      {toolDetails.details}
+                    </div>
+                    {toolDetails.type === 'search' && (
+                      <div className="w-full h-1 bg-primary/20 rounded-full overflow-hidden">
+                        <div className="h-full bg-primary w-3/5 animate-[shimmer_1.5s_ease-in-out_infinite]" />
+                      </div>
+                    )}
                   </div>
-                )}
-                
-                {/* Progress bar for searching */}
-                {toolDetails?.type === 'search' && (
-                  <div className="mt-3 w-full h-1 bg-primary/20 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary w-2/5 animate-[shimmer_1.5s_ease-in-out_infinite]" />
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <span className="text-sm text-muted-foreground ml-2">
+                      Thinking...
+                    </span>
                   </div>
                 )}
               </div>

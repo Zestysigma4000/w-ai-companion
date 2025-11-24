@@ -29,53 +29,77 @@ serve(async (req) => {
     const currentYear = new Date().getFullYear();
     const enhancedQuery = `${query} ${currentYear}`;
     
-    // Try multiple search strategies for better results
     let results: any[] = [];
     const maxResults = 8;
     
-    // Strategy 1: Use DuckDuckGo Lite (simpler HTML, easier to parse)
+    // Use Google Custom Search API approach via DuckDuckGo
     try {
-      const liteUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(enhancedQuery)}`;
-      const liteResponse = await fetch(liteUrl, {
+      const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(enhancedQuery)}`;
+      const response = await fetch(searchUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer': 'https://duckduckgo.com/'
         }
       });
       
-      if (liteResponse.ok) {
-        const html = await liteResponse.text();
+      if (response.ok) {
+        const html = await response.text();
         
-        // Parse lite version - simpler structure
-        const linkMatches = html.matchAll(/<a[^>]*class="result-link"[^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/g);
-        const snippetMatches = html.matchAll(/<td class="result-snippet"[^>]*>(.*?)<\/td>/gs);
+        // Multiple parsing strategies for reliability
         
-        const links = Array.from(linkMatches);
-        const snippets = Array.from(snippetMatches);
+        // Strategy 1: Standard result blocks
+        const resultRegex = /<div[^>]*class="[^"]*result[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
+        const blocks = Array.from(html.matchAll(resultRegex));
         
-        for (let i = 0; i < Math.min(links.length, snippets.length, maxResults); i++) {
-          const url = links[i][1];
-          const title = links[i][2].replace(/<[^>]*>/g, '').trim();
-          const snippet = snippets[i][1].replace(/<[^>]*>/g, '').trim();
+        for (const block of blocks.slice(0, maxResults * 2)) {
+          const blockHtml = block[1];
           
-          // Filter out low-quality results
+          // Extract title and URL
+          const titleMatch = blockHtml.match(/<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/i);
+          if (!titleMatch) continue;
+          
+          let url = titleMatch[1];
+          const title = titleMatch[2].replace(/<[^>]*>/g, '').trim();
+          
+          // Clean up DuckDuckGo redirect URLs
+          if (url.includes('duckduckgo.com/l/')) {
+            const uddgMatch = url.match(/uddg=([^&]+)/);
+            if (uddgMatch) {
+              url = decodeURIComponent(uddgMatch[1]);
+            }
+          }
+          
+          // Extract snippet
+          const snippetMatch = blockHtml.match(/<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>(.*?)<\/a>/i);
+          const snippet = snippetMatch ? snippetMatch[1].replace(/<[^>]*>/g, '').trim() : '';
+          
+          // Quality filters
           if (url && 
               title && 
-              title.length > 5 && 
+              title.length > 3 &&
               !url.includes('duckduckgo.com') &&
               !title.toLowerCase().includes('more results') &&
-              snippet.length > 10) {
-            results.push({ 
-              title: title.substring(0, 200), 
-              url, 
-              snippet: snippet.substring(0, 300) 
-            });
+              snippet.length > 5) {
+            
+            // Check for duplicates
+            if (!results.some(r => r.url === url)) {
+              results.push({
+                title: title.substring(0, 200),
+                url: url,
+                snippet: snippet.substring(0, 400)
+              });
+            }
           }
+          
+          if (results.length >= maxResults) break;
         }
         
-        console.log(`✅ Lite search found ${results.length} results`);
+        console.log(`✅ Found ${results.length} quality results`);
       }
     } catch (error) {
-      console.log('⚠️ Lite search failed:', error);
+      console.log('⚠️ Primary search failed:', error);
     }
     
     // If no results found, try alternative API approach

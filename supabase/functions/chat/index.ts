@@ -364,6 +364,13 @@ serve(async (req) => {
       day: 'numeric' 
     });
     
+    // Analyze query complexity for dynamic response style
+    const isSimpleQuery = message.length < 50 && 
+                          !message.includes('explain') && 
+                          !message.includes('analyze') &&
+                          !message.includes('how') &&
+                          !message.includes('why');
+    
     const agentToolsDescription = `\n\nAGENT MODE: You have access to these tools:
 1. web_search - Search the web for current information
 2. execute_code - Execute JavaScript/TypeScript code
@@ -379,7 +386,6 @@ When you need to use a tool, respond with EXACTLY this format:
 
 For web_search: {"query": "search query"}
 For execute_code: {"code": "print('Hello')", "language": "python"}
-  Supported languages: javascript, typescript, python, java, cpp, c, csharp, go, rust, ruby, php, swift, kotlin, scala, r, bash
 For deep_think: {"problem": "problem description"}
 
 You can use multiple tools in sequence. After receiving tool results, incorporate them naturally into your response.`;
@@ -391,39 +397,28 @@ You can use multiple tools in sequence. After receiving tool results, incorporat
 
 **CURRENT DATE AND TIME: ${currentDate}**
 
+${isSimpleQuery ? `**RESPONSE STYLE: This is a simple, straightforward question. Provide a BRIEF, DIRECT answer (2-4 sentences max). Be concise and to the point.**` : `**RESPONSE STYLE: This appears to be a complex question. Provide a thorough, detailed response with explanations and context.**`}
+
 You can:
 - Write and debug code in any programming language
 - Search the web for current information in real-time
-- Execute code in 40+ languages including: JavaScript, TypeScript, Python, Java, C++, C#, Go, Rust, Ruby, PHP, Swift, Kotlin, Scala, R, and Bash
+- Execute code in 40+ languages
 - Create websites, games, and applications
 - Solve complex problems and provide detailed explanations
-- File management and project organization
-- Architecture and design decisions
 - Analyze images, documents, and code files uploaded by users${agentToolsDescription}
 
-CRITICAL LANGUAGE REQUIREMENT: You MUST respond in English at all times. Always use English regardless of the language in uploaded images or files.
+CRITICAL LANGUAGE REQUIREMENT: You MUST respond in English at all times.
 
 IMPORTANT FACTUAL ACCURACY GUIDELINES:
 - You are speaking on ${currentDate}, so any dates in search results that match this timeframe are CURRENT and REAL
-- When making claims about current events or people, ALWAYS cross-reference multiple reliable sources
-- Be EXTREMELY CAUTIOUS about claims regarding deaths, disasters, or sensational news
-- If search results seem inconsistent or unreliable, acknowledge uncertainty rather than stating false information
-- Distinguish between verified facts and speculation
-- For sensitive topics (deaths, health, legal matters), require multiple credible sources before making definitive statements
+- When making claims about current events, ALWAYS verify information
+- Be skeptical of sensational claims  
 - If you cannot verify something with confidence, say so explicitly
-- Never invent or fabricate information - if search results are unclear, state that
+- Never invent or fabricate information
 
-WHEN USING WEB SEARCH:
-- Remember the current date is ${currentDate}, so interpret search result timestamps accordingly
-- Always verify information across multiple search results
-- Be skeptical of sensational claims
-- Check dates on sources to ensure currency
-- Distinguish between news, opinion, satire, and rumors
-- If sources conflict, present both sides rather than choosing one
+${isSimpleQuery ? `**REMEMBER: Keep your response SHORT and SIMPLE for this straightforward question.**` : ''}
 
-IMPORTANT: When the user uploads files, you will see them clearly marked with emojis like 📎, 📷, 📄, 📦, or 🎬. These are files the user has shared with you - NOT part of their text message. Acknowledge the files and help analyze them.
-
-Be helpful, autonomous, and proactive in using your tools when needed. But above all, be ACCURATE and acknowledge uncertainty when appropriate. Remember: ALWAYS respond in English.`
+Be helpful, autonomous, and proactive in using your tools when needed. But above all, be ACCURATE and acknowledge uncertainty when appropriate.`
       },
       ...(messageHistory || []).map((msg: any) => {
         // Build content array for messages with images
