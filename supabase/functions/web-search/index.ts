@@ -29,48 +29,53 @@ serve(async (req) => {
     const currentYear = new Date().getFullYear();
     const enhancedQuery = `${query} ${currentYear}`;
     
-    // Use DuckDuckGo HTML scraping with recency preference
-    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(enhancedQuery)}&df=d`; // df=d for recent results
-    const response = await fetch(searchUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache'
+    // Try multiple search strategies for better results
+    let results: any[] = [];
+    const maxResults = 8;
+    
+    // Strategy 1: Use DuckDuckGo Lite (simpler HTML, easier to parse)
+    try {
+      const liteUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(enhancedQuery)}`;
+      const liteResponse = await fetch(liteUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        }
+      });
+      
+      if (liteResponse.ok) {
+        const html = await liteResponse.text();
+        
+        // Parse lite version - simpler structure
+        const linkMatches = html.matchAll(/<a[^>]*class="result-link"[^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/g);
+        const snippetMatches = html.matchAll(/<td class="result-snippet"[^>]*>(.*?)<\/td>/gs);
+        
+        const links = Array.from(linkMatches);
+        const snippets = Array.from(snippetMatches);
+        
+        for (let i = 0; i < Math.min(links.length, snippets.length, maxResults); i++) {
+          const url = links[i][1];
+          const title = links[i][2].replace(/<[^>]*>/g, '').trim();
+          const snippet = snippets[i][1].replace(/<[^>]*>/g, '').trim();
+          
+          // Filter out low-quality results
+          if (url && 
+              title && 
+              title.length > 5 && 
+              !url.includes('duckduckgo.com') &&
+              !title.toLowerCase().includes('more results') &&
+              snippet.length > 10) {
+            results.push({ 
+              title: title.substring(0, 200), 
+              url, 
+              snippet: snippet.substring(0, 300) 
+            });
+          }
+        }
+        
+        console.log(`✅ Lite search found ${results.length} results`);
       }
-    });
-
-    if (!response.ok) {
-      throw new Error('Search failed');
-    }
-
-    const html = await response.text();
-    
-    // Parse results using improved regex patterns
-    const results: any[] = [];
-    
-    // More flexible regex patterns to match DuckDuckGo's HTML structure
-    const resultBlocks = html.match(/<div class="result[^"]*"[^>]*>[\s\S]*?<\/div>[\s\S]*?<\/div>/g) || [];
-    
-    const maxResults = 5;
-    
-    for (let i = 0; i < Math.min(resultBlocks.length, maxResults); i++) {
-      const block = resultBlocks[i];
-      
-      // Extract URL
-      const urlMatch = block.match(/href="([^"]+)"/);
-      const url = urlMatch ? decodeURIComponent(urlMatch[1].replace(/^\/\/duckduckgo\.com\/l\/\?uddg=/, '').split('&')[0]) : '';
-      
-      // Extract title
-      const titleMatch = block.match(/class="result__a"[^>]*>(.*?)<\/a>/);
-      const title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, '').trim() : 'No title';
-      
-      // Extract snippet
-      const snippetMatch = block.match(/class="result__snippet"[^>]*>(.*?)<\/a>/);
-      const snippet = snippetMatch ? snippetMatch[1].replace(/<[^>]*>/g, '').trim() : 'No description available';
-      
-      if (url && title) {
-        results.push({ title, url, snippet });
-      }
+    } catch (error) {
+      console.log('⚠️ Lite search failed:', error);
     }
     
     // If no results found, try alternative API approach
