@@ -516,6 +516,7 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
     // Agent loop - process tool calls
     let maxIterations = 5;
     let iteration = 0;
+    const toolsUsed: string[] = [];
     
     while (iteration < maxIterations) {
       // Check for tool calls in response
@@ -528,6 +529,7 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
       
       iteration++;
       const toolName = toolCallMatch[1].trim();
+      toolsUsed.push(toolName);
       let parameters;
       
       try {
@@ -557,9 +559,9 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
       let toolResult;
       
       // Execute the tool
-      try {
-        if (toolName === 'web_search') {
-          const searchResponse = await fetch(
+          try {
+            if (toolName === 'web_search') {
+              const searchResponse = await fetch(
             `${Deno.env.get('SUPABASE_URL')}/functions/v1/web-search`,
             {
               method: 'POST',
@@ -743,7 +745,8 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
     return new Response(
       JSON.stringify({
         response: assistantMessage,
-        conversationId: conversation.id
+        conversationId: conversation.id,
+        toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
