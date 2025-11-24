@@ -518,6 +518,7 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
     let maxIterations = 5;
     let iteration = 0;
     const toolsUsed: string[] = [];
+    let signalPrefixes = '';
     
     while (iteration < maxIterations) {
       // Check for tool calls in response
@@ -531,6 +532,16 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
       iteration++;
       const toolName = toolCallMatch[1].trim();
       toolsUsed.push(toolName);
+      
+      // Add signal prefix for this tool
+      if (toolName === 'web_search') {
+        signalPrefixes += '[SEARCHING_WEB] ';
+      } else if (toolName === 'execute_code') {
+        signalPrefixes += '[EXECUTING_CODE] ';
+      } else if (toolName === 'deep_think') {
+        signalPrefixes += '[DEEP_THINKING] ';
+      }
+      
       let parameters;
       
       console.log(`🔧 Agent using tool: ${toolName}`);
@@ -733,7 +744,10 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
       }
     }
 
-    // Save assistant message
+    // Add signal prefixes to the response for frontend animation
+    const responseWithSignals = signalPrefixes + assistantMessage;
+    
+    // Save assistant message (without signal prefixes for clean history)
     const { error: assistantMessageError } = await supabaseClient
       .from('messages')
       .insert({
@@ -747,7 +761,7 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
 
     return new Response(
       JSON.stringify({
-        response: assistantMessage,
+        response: responseWithSignals,
         conversationId: conversation.id,
         toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined
       }),
