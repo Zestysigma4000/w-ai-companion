@@ -370,25 +370,6 @@ export function ChatInterface() {
         setCurrentConversationId(data.conversationId);
         await refreshConversations();
       }
-
-      // Update agent status based on tools used
-      if (data.toolsUsed && data.toolsUsed.length > 0) {
-        // Show status for each tool as it's used
-        for (const tool of data.toolsUsed) {
-          if (tool === 'web_search') {
-            setAgentStatus('Searching the web...');
-          } else if (tool === 'execute_code') {
-            setAgentStatus('Executing code...');
-          } else if (tool === 'deep_think') {
-            setAgentStatus('Deep thinking...');
-          }
-          // Brief delay to show each status
-          await new Promise(resolve => setTimeout(resolve, 800));
-        }
-        setAgentStatus('Generating response...');
-      } else {
-        setAgentStatus('Generating response...');
-      }
       
       // Typewriter effect: progressively reveal the AI response
       const typingMessageId = (Date.now() + 1).toString();
@@ -413,18 +394,33 @@ export function ChatInterface() {
         await new Promise(resolve => setTimeout(resolve, remainingTime));
       }
 
-      setAgentStatus('Generating response...');
+      // Detect tool signals and set animation BEFORE typewriter effect
+      let displayText = fullText
+      let currentToolAnimation = 'Generating response...'
+      
+      if (fullText.includes('[SEARCHING_WEB]')) {
+        currentToolAnimation = 'Searching the web...'
+        displayText = fullText.replace(/\[SEARCHING_WEB\]\s*/g, '')
+      } else if (fullText.includes('[EXECUTING_CODE]')) {
+        currentToolAnimation = 'Executing code...'
+        displayText = fullText.replace(/\[EXECUTING_CODE\]\s*/g, '')
+      } else if (fullText.includes('[DEEP_THINKING]')) {
+        currentToolAnimation = 'Deep thinking...'
+        displayText = fullText.replace(/\[DEEP_THINKING\]\s*/g, '')
+      }
+      
+      setAgentStatus(currentToolAnimation);
 
       // Animate content reveal
       await new Promise<void>((resolve) => {
-        const speed = Math.max(8, Math.floor(1200 / Math.max(1, fullText.length)));
+        const speed = Math.max(8, Math.floor(1200 / Math.max(1, displayText.length)));
         let i = 0;
         const interval = setInterval(() => {
-          i = Math.min(i + 2, fullText.length);
+          i = Math.min(i + 2, displayText.length);
           setMessages(prev => prev.map(m =>
-            m.id === typingMessageId ? { ...m, content: fullText.slice(0, i) } : m
+            m.id === typingMessageId ? { ...m, content: displayText.slice(0, i) } : m
           ));
-          if (i >= fullText.length) {
+          if (i >= displayText.length) {
             clearInterval(interval);
             setMessages(prev => prev.map(m =>
               m.id === typingMessageId ? { ...m, isTyping: false } : m
