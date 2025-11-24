@@ -25,103 +25,66 @@ serve(async (req) => {
 
     console.log('🔍 Searching for:', query);
 
-    // Add recency filter to query for more current results
-    const currentYear = new Date().getFullYear();
-    const enhancedQuery = `${query} ${currentYear}`;
-    
+    // Use multiple search strategies for reliability
     let results: any[] = [];
-    const maxResults = 8;
+    const currentYear = new Date().getFullYear();
     
-    // Use Google Custom Search API approach via DuckDuckGo
+    // Strategy 1: Try SearXNG JSON API (more reliable than scraping)
     try {
-      const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(enhancedQuery)}`;
-      const response = await fetch(searchUrl, {
+      const searxUrl = `https://searx.be/search?q=${encodeURIComponent(query)}&format=json&language=en&time_range=&safesearch=0&categories=general`;
+      const searxResponse = await fetch(searxUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Referer': 'https://duckduckgo.com/'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         }
       });
       
-      if (response.ok) {
-        const html = await response.text();
+      if (searxResponse.ok) {
+        const data = await searxResponse.json();
+        if (data.results && Array.isArray(data.results)) {
+          results = data.results.slice(0, 8).map((r: any) => ({
+            title: r.title || 'No title',
+            url: r.url || '',
+            snippet: r.content || r.snippet || 'No description available'
+          }));
+          console.log(`✅ SearXNG found ${results.length} results`);
+        }
+      }
+    } catch (error) {
+      console.log('⚠️ SearXNG failed:', error);
+    }
+    
+    // Strategy 2: Fallback to DuckDuckGo Instant Answer API
+    if (results.length === 0) {
+      try {
+        const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_redirect=1&no_html=1&skip_disambig=1`;
+        const ddgResponse = await fetch(ddgUrl);
+        const ddgData = await ddgResponse.json();
         
-        // Multiple parsing strategies for reliability
-        
-        // Strategy 1: Standard result blocks
-        const resultRegex = /<div[^>]*class="[^"]*result[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
-        const blocks = Array.from(html.matchAll(resultRegex));
-        
-        for (const block of blocks.slice(0, maxResults * 2)) {
-          const blockHtml = block[1];
-          
-          // Extract title and URL
-          const titleMatch = blockHtml.match(/<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/i);
-          if (!titleMatch) continue;
-          
-          let url = titleMatch[1];
-          const title = titleMatch[2].replace(/<[^>]*>/g, '').trim();
-          
-          // Clean up DuckDuckGo redirect URLs
-          if (url.includes('duckduckgo.com/l/')) {
-            const uddgMatch = url.match(/uddg=([^&]+)/);
-            if (uddgMatch) {
-              url = decodeURIComponent(uddgMatch[1]);
-            }
-          }
-          
-          // Extract snippet
-          const snippetMatch = blockHtml.match(/<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>(.*?)<\/a>/i);
-          const snippet = snippetMatch ? snippetMatch[1].replace(/<[^>]*>/g, '').trim() : '';
-          
-          // Quality filters
-          if (url && 
-              title && 
-              title.length > 3 &&
-              !url.includes('duckduckgo.com') &&
-              !title.toLowerCase().includes('more results') &&
-              snippet.length > 5) {
-            
-            // Check for duplicates
-            if (!results.some(r => r.url === url)) {
+        // Extract from RelatedTopics
+        if (ddgData.RelatedTopics && Array.isArray(ddgData.RelatedTopics)) {
+          for (const topic of ddgData.RelatedTopics.slice(0, 8)) {
+            if (topic.FirstURL && topic.Text) {
               results.push({
-                title: title.substring(0, 200),
-                url: url,
-                snippet: snippet.substring(0, 400)
+                title: topic.Text.split(' - ')[0] || topic.Text.substring(0, 100),
+                url: topic.FirstURL,
+                snippet: topic.Text
               });
             }
           }
-          
-          if (results.length >= maxResults) break;
         }
         
-        console.log(`✅ Found ${results.length} quality results`);
-      }
-    } catch (error) {
-      console.log('⚠️ Primary search failed:', error);
-    }
-    
-    // If no results found, try alternative API approach
-    if (results.length === 0) {
-      console.log('⚠️ HTML parsing failed, trying API approach...');
-      
-      // Use DuckDuckGo Instant Answer API as fallback
-      const apiUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1`;
-      const apiResponse = await fetch(apiUrl);
-      const apiData = await apiResponse.json();
-      
-      // Extract related topics as results
-      const relatedTopics = apiData.RelatedTopics || [];
-      for (let i = 0; i < Math.min(relatedTopics.length, maxResults); i++) {
-        const topic = relatedTopics[i];
-        if (topic.FirstURL && topic.Text) {
+        // Extract from AbstractSource
+        if (results.length === 0 && ddgData.AbstractURL && ddgData.Abstract) {
           results.push({
-            title: topic.Text.split(' - ')[0] || topic.Text.substring(0, 100),
-            url: topic.FirstURL,
-            snippet: topic.Text
+            title: ddgData.Heading || query,
+            url: ddgData.AbstractURL,
+            snippet: ddgData.Abstract
           });
         }
+        
+        console.log(`✅ DuckDuckGo API found ${results.length} results`);
+      } catch (error) {
+        console.log('⚠️ DuckDuckGo API failed:', error);
       }
     }
     
@@ -131,13 +94,13 @@ serve(async (req) => {
       day: 'numeric' 
     });
 
-    console.log(`✅ Found ${results.length} results for current date: ${currentDate}`);
+    console.log(`✅ Returning ${results.length} total results for date: ${currentDate}`);
 
     return new Response(
       JSON.stringify({ 
         results,
         searchDate: new Date().toISOString(),
-        query: enhancedQuery
+        query: query
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -147,7 +110,8 @@ serve(async (req) => {
     console.error('Search error:', error);
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Search failed' 
+        error: error instanceof Error ? error.message : 'Search failed',
+        results: []
       }),
       { 
         status: 500,
