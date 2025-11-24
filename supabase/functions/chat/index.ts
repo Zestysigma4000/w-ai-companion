@@ -21,7 +21,9 @@ const chatRequestSchema = z.object({
     type: z.string(),
     size: z.number()
   })).optional(),
-  deepThinkEnabled: z.boolean().optional().default(false)
+  deepThinkEnabled: z.boolean().optional().default(false),
+  forceWebSearch: z.boolean().optional().default(false),
+  forceCodeExecution: z.boolean().optional().default(false)
 })
 
 serve(async (req) => {
@@ -59,7 +61,7 @@ serve(async (req) => {
       )
     }
     
-    const { message, conversationId, attachments = [], deepThinkEnabled } = validationResult.data
+    const { message, conversationId, attachments = [], deepThinkEnabled, forceWebSearch, forceCodeExecution } = validationResult.data
     
     // Initialize Supabase client with user's token
     const supabaseClient = createClient(
@@ -519,6 +521,26 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
     let iteration = 0;
     const toolsUsed: string[] = [];
     let signalPrefixes = '';
+    let firstToolDetails: { type: string; details: string } | null = null;
+    
+    // Handle forced tools
+    if (forceWebSearch && !assistantMessage.includes('<tool_call>')) {
+      // Prepend a web search tool call
+      assistantMessage = `<tool_call>
+<tool_name>web_search</tool_name>
+<parameters>{"query": "${message}"}</parameters>
+</tool_call>
+
+` + assistantMessage;
+    } else if (forceCodeExecution && !assistantMessage.includes('<tool_call>')) {
+      // Prepend a code execution tool call  
+      assistantMessage = `<tool_call>
+<tool_name>execute_code</tool_name>
+<parameters>{"code": "${message}", "language": "javascript"}</parameters>
+</tool_call>
+
+` + assistantMessage;
+    }
     
     while (iteration < maxIterations) {
       // Check for tool calls in response
@@ -532,15 +554,6 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
       iteration++;
       const toolName = toolCallMatch[1].trim();
       toolsUsed.push(toolName);
-      
-      // Add signal prefix for this tool
-      if (toolName === 'web_search') {
-        signalPrefixes += '[SEARCHING_WEB] ';
-      } else if (toolName === 'execute_code') {
-        signalPrefixes += '[EXECUTING_CODE] ';
-      } else if (toolName === 'deep_think') {
-        signalPrefixes += '[DEEP_THINKING] ';
-      }
       
       let parameters;
       
@@ -557,6 +570,30 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
       }
       
       console.log(`🔧 Agent using tool: ${toolName}`, parameters);
+      
+      // Capture first tool details for frontend display
+      if (!firstToolDetails) {
+        if (toolName === 'web_search') {
+          firstToolDetails = {
+            type: 'search',
+            details: `Searching for: "${parameters.query}"`
+          };
+          signalPrefixes += '[SEARCHING_WEB] ';
+        } else if (toolName === 'execute_code') {
+          const lang = parameters.language || 'javascript';
+          firstToolDetails = {
+            type: 'code',
+            details: `Executing ${lang} code`
+          };
+          signalPrefixes += '[EXECUTING_CODE] ';
+        } else if (toolName === 'deep_think') {
+          firstToolDetails = {
+            type: 'think',
+            details: `Deep thinking about: ${parameters.problem?.substring(0, 50)}...`
+          };
+          signalPrefixes += '[DEEP_THINKING] ';
+        }
+      }
       
       // Log tool usage
       await adminClient.from('activity_logs').insert({
@@ -763,7 +800,8 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
       JSON.stringify({
         response: responseWithSignals,
         conversationId: conversation.id,
-        toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined
+        toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined,
+        toolDetails: firstToolDetails
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
