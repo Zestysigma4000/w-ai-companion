@@ -46,6 +46,9 @@ export function ChatInterface() {
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [deepThinkEnabled, setDeepThinkEnabled] = useState(false);
+  const [forceWebSearch, setForceWebSearch] = useState(false);
+  const [forceCodeExecution, setForceCodeExecution] = useState(false);
+  const [toolDetails, setToolDetails] = useState<{ type: string; details: string } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragCounter, setDragCounter] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -285,6 +288,7 @@ export function ChatInterface() {
       console.log(`📤 Sending message with ${uploadedFiles.length} attachments (${uploadedFiles.filter(f => f.type.startsWith('image/')).length} images)`);
       
       setAgentStatus('Thinking...');
+      setToolDetails(null);
       
       const aiResult = await retryWithBackoff(
         async () => supabase.functions.invoke('chat', {
@@ -292,7 +296,9 @@ export function ChatInterface() {
             message: currentInput,
             conversationId: currentConversationId || null,
             attachments: uploadedFiles,
-            deepThinkEnabled
+            deepThinkEnabled,
+            forceWebSearch,
+            forceCodeExecution
           },
           headers: {
             Authorization: `Bearer ${session.access_token}`
@@ -370,6 +376,15 @@ export function ChatInterface() {
         setCurrentConversationId(data.conversationId);
         await refreshConversations();
       }
+      
+      // Set tool details if provided
+      if (data.toolDetails) {
+        setToolDetails(data.toolDetails);
+      }
+      
+      // Reset force flags
+      setForceWebSearch(false);
+      setForceCodeExecution(false);
       
       // Typewriter effect: progressively reveal the AI response
       const typingMessageId = (Date.now() + 1).toString();
@@ -654,10 +669,17 @@ export function ChatInterface() {
                   <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                   <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                   <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  <span className="text-sm text-muted-foreground ml-2">
+                 <span className="text-sm text-muted-foreground ml-2">
                     {agentStatus || 'Thinking...'}
                   </span>
                 </div>
+                
+                {/* Show tool details */}
+                {toolDetails && (
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    {toolDetails.details}
+                  </div>
+                )}
                 
                 {/* Progress bar for searching */}
                 {agentStatus?.toLowerCase().includes('search') && (
@@ -753,6 +775,34 @@ export function ChatInterface() {
           <div className="relative">
             <div className="flex items-end gap-2 md:gap-3 bg-card border border-border rounded-xl p-2 shadow-card-custom">
               {settings.enable_file_uploads && <FileAttachment onFileSelect={handleFileSelect} />}
+
+              <Button
+                variant={forceWebSearch ? "default" : "ghost"}
+                size="sm"
+                onClick={() => {
+                  setForceWebSearch(!forceWebSearch);
+                  if (!forceWebSearch) setForceCodeExecution(false);
+                }}
+                aria-pressed={forceWebSearch}
+                title="Force Web Search"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <Search className="w-4 h-4" />
+              </Button>
+
+              <Button
+                variant={forceCodeExecution ? "default" : "ghost"}
+                size="sm"
+                onClick={() => {
+                  setForceCodeExecution(!forceCodeExecution);
+                  if (!forceCodeExecution) setForceWebSearch(false);
+                }}
+                aria-pressed={forceCodeExecution}
+                title="Force Code Execution"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <Code className="w-4 h-4" />
+              </Button>
 
               <Button
                 variant={deepThinkEnabled ? "default" : "ghost"}
