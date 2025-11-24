@@ -48,6 +48,7 @@ export function ChatInterface() {
   const [deepThinkEnabled, setDeepThinkEnabled] = useState(false);
   const [forceWebSearch, setForceWebSearch] = useState(false);
   const [toolDetails, setToolDetails] = useState<{ type: string; details: string } | null>(null);
+  const [persistentToolDetails, setPersistentToolDetails] = useState<{ type: string; details: string } | null>(null);
   const [typingPreview, setTypingPreview] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [dragCounter, setDragCounter] = useState(0);
@@ -75,8 +76,14 @@ export function ChatInterface() {
   
   // Debug: Log when toolDetails changes
   useEffect(() => {
-    console.log('🎨 Tool details state changed:', toolDetails);
-  }, [toolDetails]);
+    if (isLoading && persistentToolDetails) {
+      console.log('🎨 Showing tool indicator:', persistentToolDetails);
+      setToolDetails(persistentToolDetails);
+    } else if (!isLoading) {
+      console.log('🎨 Loading complete, clearing tool indicator');
+      setToolDetails(null);
+    }
+  }, [isLoading, persistentToolDetails]);
 
   // Retry connection when coming back online
   useEffect(() => {
@@ -330,6 +337,11 @@ export function ChatInterface() {
 
       console.log('📥 Response received from edge function');
       console.log('📊 Tool details in response:', data?.toolDetails);
+      
+      if (data?.toolDetails) {
+        console.log('🔧 Setting persistent tool details for display');
+        setPersistentToolDetails(data.toolDetails);
+      }
 
       if (error) {
         // Handle specific error codes
@@ -391,16 +403,6 @@ export function ChatInterface() {
         await refreshConversations();
       }
       
-      // CRITICAL: Set tool details IMMEDIATELY when response arrives
-      console.log('🔧 Setting tool details:', data.toolDetails);
-      if (data.toolDetails) {
-        setToolDetails(data.toolDetails);
-        console.log('✅ Tool details set successfully');
-      } else {
-        console.log('⚠️ No tool details in response');
-        setToolDetails(null);
-      }
-      
       // Reset force flags and typing preview
       setForceWebSearch(false);
       setTypingPreview("");
@@ -442,7 +444,8 @@ export function ChatInterface() {
             setMessages(prev => prev.map(m =>
               m.id === typingMessageId ? { ...m, isTyping: false } : m
             ));
-            setToolDetails(null);
+            console.log('🧹 Clearing persistent tool details');
+            setPersistentToolDetails(null);
             resolve();
           }
         }, speed);
