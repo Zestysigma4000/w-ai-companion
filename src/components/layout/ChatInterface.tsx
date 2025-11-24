@@ -3,13 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "../chat/MessageBubble";
-import { Send, File, Brain, Loader2 } from "lucide-react";
+import { Send, File, Brain, Loader2, Search, Code, Sparkles } from "lucide-react";
 import { useConversations } from "@/hooks/useConversations";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { VoiceInput } from "../chat/VoiceInput";
 import { FileAttachment } from "../chat/FileAttachment";
-import { AgentThinkingAnimation } from "../chat/AgentThinkingAnimation";
 import { toast } from "sonner";
 import { retryWithBackoff } from "@/utils/retry";
 import { requestQueue } from "@/utils/requestQueue";
@@ -610,26 +609,61 @@ export function ChatInterface() {
             </div>
           )}
 
-          {/* Agent Status Indicator */}
-          <AgentThinkingAnimation status={agentStatus} />
-
           {messages.map((message) => (
             <MessageBubble key={message.id} message={message} />
           ))}
           
-          {/* Thinking animation */}
+          {/* Dynamic Thinking animation based on agent activity */}
           {isLoading && messages[messages.length - 1]?.role === "user" && (
             <div className="flex items-start gap-3 animate-fade-in">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Brain className="w-4 h-4 text-primary" />
+                {(() => {
+                  const status = agentStatus?.toLowerCase() || '';
+                  const isSearching = status.includes('search');
+                  const isExecuting = status.includes('code') || status.includes('execut');
+                  const isThinking = status.includes('think') && !isSearching && !isExecuting;
+                  const isGenerating = status.includes('generat') || status.includes('analyz') || status.includes('synthesiz');
+                  
+                  if (isSearching) {
+                    return (
+                      <div className="relative">
+                        <Search className="w-4 h-4 text-primary animate-pulse" />
+                        <div className="absolute inset-0 animate-ping">
+                          <Search className="w-4 h-4 text-primary opacity-30" />
+                        </div>
+                      </div>
+                    );
+                  }
+                  if (isExecuting) {
+                    return (
+                      <div className="relative">
+                        <Code className="w-4 h-4 text-primary animate-bounce" />
+                      </div>
+                    );
+                  }
+                  if (isGenerating) {
+                    return <Sparkles className="w-4 h-4 text-primary animate-pulse" />;
+                  }
+                  // Default thinking animation
+                  return <Brain className="w-4 h-4 text-primary" />;
+                })()}
               </div>
               <div className="bg-card rounded-2xl p-4 max-w-[80%] border border-border">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                   <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                   <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  <span className="text-sm text-muted-foreground ml-2">Thinking...</span>
+                  <span className="text-sm text-muted-foreground ml-2">
+                    {agentStatus || 'Thinking...'}
+                  </span>
                 </div>
+                
+                {/* Progress bar for searching */}
+                {agentStatus?.toLowerCase().includes('search') && (
+                  <div className="mt-3 w-full h-1 bg-primary/20 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary w-2/5 animate-[shimmer_1.5s_ease-in-out_infinite]" />
+                  </div>
+                )}
               </div>
             </div>
           )}
