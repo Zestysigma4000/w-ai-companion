@@ -1,15 +1,17 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "../chat/MessageBubble";
-import { Send, File, Brain } from "lucide-react";
+import { Send, File, Brain, Loader2 } from "lucide-react";
 import { useConversations } from "@/hooks/useConversations";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { VoiceInput } from "../chat/VoiceInput";
 import { FileAttachment } from "../chat/FileAttachment";
 import { toast } from "sonner";
+import { retryWithBackoff } from "@/utils/retry";
+import { requestQueue } from "@/utils/requestQueue";
 
 interface Message {
   id: string;
@@ -46,14 +48,50 @@ export function ChatInterface() {
   const [deepThinkEnabled, setDeepThinkEnabled] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [dragCounter, setDragCounter] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
+  const [queueLength, setQueueLength] = useState(0);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Message pagination constants
+  const MESSAGES_PER_PAGE = 50;
+
+  // Subscribe to request queue changes
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
+    const unsubscribe = requestQueue.subscribe((queue) => {
+      setQueueLength(queue.length);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  // Retry connection when coming back online
+  useEffect(() => {
+    const handleOnline = () => {
+      requestQueue.retryQueue();
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, []);
+
+  // Debounced auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [messages.length, isLoading]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -63,63 +101,89 @@ export function ChatInterface() {
     }
   }, [inputValue]);
 
-  // Load messages when conversation changes
-  useEffect(() => {
-    const loadMessages = async () => {
-      if (currentConversationId) {
-        setLoadingMessages(true);
-        try {
-          const { data: messagesData, error } = await supabase
+  // Load messages with pagination when conversation changes
+  const loadMessages = useCallback(async (conversationId: string, pageNum: number = 0) => {
+    setLoadingMessages(true);
+    try {
+      const from = pageNum * MESSAGES_PER_PAGE;
+      const to = from + MESSAGES_PER_PAGE - 1;
+
+      const result = await retryWithBackoff(
+        async () => {
+          const response = await supabase
             .from('messages')
-            .select('*')
-            .eq('conversation_id', currentConversationId)
-            .order('created_at', { ascending: true });
-          
-          if (error) {
-            console.error('Error loading messages:', error);
-            toast.error('Failed to load conversation history', {
-              description: 'Unable to connect to the server. Please check your connection.'
-            });
-            setMessages([]);
-            setLoadingMessages(false);
-            return;
+            .select('*', { count: 'exact' })
+            .eq('conversation_id', conversationId)
+            .order('created_at', { ascending: false })
+            .range(from, to);
+          return response;
+        },
+        {
+          maxRetries: 2,
+          onRetry: (attempt) => {
+            console.log(`Retrying message load (attempt ${attempt})...`);
           }
-        
-        if (messagesData && messagesData.length > 0) {
-          const loadedMessages: Message[] = messagesData.map((msg) => ({
+        }
+      );
+
+      const { data: messagesData, error, count } = result;
+      
+      if (error) {
+        console.error('Error loading messages:', error);
+        toast.error('Failed to load conversation history', {
+          description: 'Unable to connect to the server. Please check your connection.'
+        });
+        return;
+      }
+    
+      if (messagesData) {
+        const loadedMessages: Message[] = messagesData
+          .reverse()
+          .map((msg) => ({
             id: msg.id,
             content: msg.content,
             role: msg.role as "user" | "assistant",
             timestamp: new Date(msg.created_at),
             attachments: msg.attachments as any[] || []
           }));
+        
+        if (pageNum === 0) {
           setMessages(loadedMessages);
         } else {
-          setMessages([]);
+          setMessages(prev => [...loadedMessages, ...prev]);
         }
-        } catch (err) {
-          console.error('Unexpected error loading messages:', err);
-          toast.error('Failed to load messages', {
-            description: 'An unexpected error occurred. Please try again.'
-          });
-          setMessages([]);
-        } finally {
-          setLoadingMessages(false);
-        }
-      } else {
-        setMessages([
-          {
-            id: "welcome",
-            content: "Hello! I'm W ai, your powerful AI assistant with full capabilities. I can help you write code, debug applications, create websites, games, and solve any technical challenge. I have access to the latest AI models and can provide working solutions to your problems. What would you like to build today?",
-            role: "assistant",
-            timestamp: new Date(),
-          }
-        ]);
+        
+        setHasMore(count ? (from + MESSAGES_PER_PAGE) < count : false);
       }
-    };
-    
-    loadMessages();
-  }, [currentConversationId]);
+    } catch (err) {
+      console.error('Unexpected error loading messages:', err);
+      toast.error('Failed to load messages', {
+        description: 'An unexpected error occurred. Please try again.'
+      });
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, []);
+
+  // Load messages when conversation changes
+  useEffect(() => {
+    if (currentConversationId) {
+      setPage(0);
+      setHasMore(true);
+      loadMessages(currentConversationId, 0);
+    } else {
+      setMessages([
+        {
+          id: "welcome",
+          content: "Hello! I'm W ai, your powerful AI assistant with full capabilities. I can help you write code, debug applications, create websites, games, and solve any technical challenge. I have access to the latest AI models and can provide working solutions to your problems. What would you like to build today?",
+          role: "assistant",
+          timestamp: new Date(),
+        }
+      ]);
+      setPage(0);
+      setHasMore(false);
+    }
+  }, [currentConversationId, loadMessages]);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -135,7 +199,8 @@ export function ChatInterface() {
     const startTime = Date.now();
     const minTypingDuration = 800; // milliseconds
 
-    try {
+    // Define the send operation
+    const sendOperation = async () => {
       // Get current session for authorization
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -154,9 +219,19 @@ export function ChatInterface() {
           const fileExt = file.name.split('.').pop();
           const fileName = `${session.user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
           
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('chat-attachments')
-            .upload(fileName, file);
+          const uploadResult = await retryWithBackoff(
+            async () => supabase.storage
+              .from('chat-attachments')
+              .upload(fileName, file),
+            {
+              maxRetries: 2,
+              onRetry: (attempt) => {
+                console.log(`Retrying file upload (attempt ${attempt})...`);
+              }
+            }
+          );
+
+          const { data: uploadData, error: uploadError } = uploadResult;
 
           if (uploadError) {
             console.error('Error uploading file:', uploadError);
@@ -203,20 +278,31 @@ export function ChatInterface() {
 
       setMessages(prev => [...prev, userMessage]);
 
-      // Call the AI backend via Supabase function
+      // Call the AI backend via Supabase function with retry
       console.log(`📤 Sending message with ${uploadedFiles.length} attachments (${uploadedFiles.filter(f => f.type.startsWith('image/')).length} images)`);
       
-      const { data, error } = await supabase.functions.invoke('chat', {
-        body: {
-          message: currentInput,
-          conversationId: currentConversationId || null,
-          attachments: uploadedFiles,
-          deepThinkEnabled
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
+      const aiResult = await retryWithBackoff(
+        async () => supabase.functions.invoke('chat', {
+          body: {
+            message: currentInput,
+            conversationId: currentConversationId || null,
+            attachments: uploadedFiles,
+            deepThinkEnabled
+          },
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          }
+        }),
+        {
+          maxRetries: 2,
+          onRetry: (attempt, error) => {
+            console.log(`Retrying message send (attempt ${attempt})...`, error.message);
+            toast.info(`Retrying... (attempt ${attempt})`);
+          }
         }
-      });
+      );
+
+      const { data, error } = aiResult;
 
       console.log('📥 Response received from edge function');
 
@@ -305,16 +391,15 @@ export function ChatInterface() {
 
       // Animate content reveal
       await new Promise<void>((resolve) => {
-        const speed = Math.max(8, Math.floor(1200 / Math.max(1, fullText.length))); // even faster
+        const speed = Math.max(8, Math.floor(1200 / Math.max(1, fullText.length)));
         let i = 0;
         const interval = setInterval(() => {
-          i = Math.min(i + 2, fullText.length); // 2 characters at a time
+          i = Math.min(i + 2, fullText.length);
           setMessages(prev => prev.map(m =>
             m.id === typingMessageId ? { ...m, content: fullText.slice(0, i) } : m
           ));
           if (i >= fullText.length) {
             clearInterval(interval);
-            // Mark done typing
             setMessages(prev => prev.map(m =>
               m.id === typingMessageId ? { ...m, isTyping: false } : m
             ));
@@ -322,6 +407,11 @@ export function ChatInterface() {
           }
         }, speed);
       });
+    };
+
+    // Try to send, or queue if it fails
+    try {
+      await sendOperation();
     } catch (error) {
       console.error('Error getting AI response:', error);
       
@@ -461,6 +551,41 @@ export function ChatInterface() {
       {/* Messages Area */}
       <ScrollArea className="flex-1 p-3 md:p-6">
         <div className="max-w-4xl mx-auto space-y-4 md:space-y-6">
+          {/* Load More Button */}
+          {hasMore && currentConversationId && (
+            <div className="flex justify-center py-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const nextPage = page + 1;
+                  setPage(nextPage);
+                  loadMessages(currentConversationId, nextPage);
+                }}
+                disabled={loadingMessages}
+              >
+                {loadingMessages ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  'Load Earlier Messages'
+                )}
+              </Button>
+            </div>
+          )}
+
+          {/* Queue Indicator */}
+          {queueLength > 0 && (
+            <div className="flex justify-center">
+              <div className="bg-muted px-4 py-2 rounded-full text-sm text-muted-foreground flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>{queueLength} message{queueLength > 1 ? 's' : ''} pending</span>
+              </div>
+            </div>
+          )}
+
           {messages.map((message) => (
             <MessageBubble key={message.id} message={message} />
           ))}
