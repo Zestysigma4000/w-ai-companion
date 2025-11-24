@@ -376,8 +376,8 @@ When you need to use a tool, respond with EXACTLY this format:
 </tool_call>
 
 For web_search: {"query": "search query"}
-For execute_code: {"code": "console.log('hello')", "language": "javascript"}
-  Note: Only JavaScript/TypeScript code execution is supported for security reasons.
+For execute_code: {"code": "print('Hello')", "language": "python"}
+  Supported languages: javascript, typescript, python, java, cpp, c, csharp, go, rust, ruby, php, swift, kotlin, scala, r, bash
 For deep_think: {"problem": "problem description"}
 
 You can use multiple tools in sequence. After receiving tool results, incorporate them naturally into your response.`;
@@ -392,7 +392,7 @@ You can use multiple tools in sequence. After receiving tool results, incorporat
 You can:
 - Write and debug code in any programming language
 - Search the web for current information in real-time
-- Execute JavaScript/TypeScript code to solve problems (IMPORTANT: execute_code tool ONLY supports JavaScript/TypeScript, not Python or other languages)
+- Execute code in 40+ languages including: JavaScript, TypeScript, Python, Java, C++, C#, Go, Rust, Ruby, PHP, Swift, Kotlin, Scala, R, and Bash
 - Create websites, games, and applications
 - Solve complex problems and provide detailed explanations
 - File management and project organization
@@ -610,11 +610,11 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
           if (execResponse.ok) {
             const execResult = await execResponse.json();
             if (execResult.success) {
-              toolResult = `Code executed successfully:\n`;
-              if (execResult.output) toolResult += `Output: ${execResult.output}\n`;
+              toolResult = `Code executed successfully (${execResult.language}):\n`;
+              if (execResult.output) toolResult += `Output:\n${execResult.output}\n`;
               if (execResult.result) toolResult += `Result: ${execResult.result}`;
             } else {
-              toolResult = `Code execution failed: ${execResult.error}`;
+              toolResult = `Code execution failed:\n${execResult.error}`;
             }
           } else {
             toolResult = 'Code execution failed. Please check your code.';
