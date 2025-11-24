@@ -9,6 +9,7 @@ import { useAppSettings } from "@/hooks/useAppSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { VoiceInput } from "../chat/VoiceInput";
 import { FileAttachment } from "../chat/FileAttachment";
+import { AgentThinkingAnimation } from "../chat/AgentThinkingAnimation";
 import { toast } from "sonner";
 import { retryWithBackoff } from "@/utils/retry";
 import { requestQueue } from "@/utils/requestQueue";
@@ -370,6 +371,20 @@ export function ChatInterface() {
         setCurrentConversationId(data.conversationId);
         await refreshConversations();
       }
+
+      // Update agent status based on tools used
+      if (data.toolsUsed && data.toolsUsed.length > 0) {
+        const lastTool = data.toolsUsed[data.toolsUsed.length - 1];
+        if (lastTool === 'web_search') {
+          setAgentStatus('Analyzing search results...');
+        } else if (lastTool === 'execute_code') {
+          setAgentStatus('Processing code output...');
+        } else if (lastTool === 'deep_think') {
+          setAgentStatus('Synthesizing insights...');
+        }
+      } else {
+        setAgentStatus('Generating response...');
+      }
       
       // Typewriter effect: progressively reveal the AI response
       const typingMessageId = (Date.now() + 1).toString();
@@ -596,18 +611,7 @@ export function ChatInterface() {
           )}
 
           {/* Agent Status Indicator */}
-          {agentStatus && (
-            <div className="flex justify-center">
-              <div className="bg-primary/10 px-4 py-2 rounded-full text-sm text-primary font-medium flex items-center gap-2 border border-primary/20">
-                <div className="flex gap-1">
-                  <div className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
-                </div>
-                <span>{agentStatus}</span>
-              </div>
-            </div>
-          )}
+          <AgentThinkingAnimation status={agentStatus} />
 
           {messages.map((message) => (
             <MessageBubble key={message.id} message={message} />
