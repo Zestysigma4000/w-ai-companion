@@ -25,11 +25,17 @@ serve(async (req) => {
 
     console.log('🔍 Searching for:', query);
 
-    // Use DuckDuckGo HTML scraping for free search
-    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    // Add recency filter to query for more current results
+    const currentYear = new Date().getFullYear();
+    const enhancedQuery = `${query} ${currentYear}`;
+    
+    // Use DuckDuckGo HTML scraping with recency preference
+    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(enhancedQuery)}&df=d`; // df=d for recent results
     const response = await fetch(searchUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
       }
     });
 
@@ -66,7 +72,13 @@ serve(async (req) => {
       count++;
     }
     
-    // Combine results
+    // Combine results with current date context
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    
     for (let i = 0; i < Math.min(titleMatches.length, maxResults); i++) {
       results.push({
         title: titleMatches[i].title,
@@ -75,10 +87,14 @@ serve(async (req) => {
       });
     }
 
-    console.log(`✅ Found ${results.length} results`);
+    console.log(`✅ Found ${results.length} results for current date: ${currentDate}`);
 
     return new Response(
-      JSON.stringify({ results }),
+      JSON.stringify({ 
+        results,
+        searchDate: new Date().toISOString(),
+        query: enhancedQuery
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }

@@ -543,11 +543,17 @@ Be helpful, autonomous, and proactive in using your tools when needed. Remember:
           );
           
           if (searchResponse.ok) {
-            const { results } = await searchResponse.json();
-            toolResult = `Search Results for "${parameters.query}":\n\n` + 
+            const { results, searchDate } = await searchResponse.json();
+            const searchDateTime = new Date(searchDate).toLocaleDateString('en-US', { 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            });
+            toolResult = `Web Search Results (as of ${searchDateTime}) for "${parameters.query}":\n\n` + 
               results.map((r: any, i: number) => 
                 `${i + 1}. ${r.title}\n   URL: ${r.url}\n   ${r.snippet}\n`
-              ).join('\n');
+              ).join('\n') +
+              `\n⚠️ Note: These are current web results as of ${searchDateTime}. Provide analysis based on this current information.`;
           } else {
             toolResult = 'Search failed. Please try a different query.';
           }
