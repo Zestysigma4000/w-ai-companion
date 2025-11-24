@@ -9,6 +9,7 @@ import { useAppSettings } from "@/hooks/useAppSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { VoiceInput } from "../chat/VoiceInput";
 import { FileAttachment } from "../chat/FileAttachment";
+import { toast } from "sonner";
 
 interface Message {
   id: string;
@@ -67,18 +68,22 @@ export function ChatInterface() {
     const loadMessages = async () => {
       if (currentConversationId) {
         setLoadingMessages(true);
-        const { data: messagesData, error } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('conversation_id', currentConversationId)
-          .order('created_at', { ascending: true });
-        
-        if (error) {
-          console.error('Error loading messages:', error);
-          setMessages([]);
-          setLoadingMessages(false);
-          return;
-        }
+        try {
+          const { data: messagesData, error } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('conversation_id', currentConversationId)
+            .order('created_at', { ascending: true });
+          
+          if (error) {
+            console.error('Error loading messages:', error);
+            toast.error('Failed to load conversation history', {
+              description: 'Unable to connect to the server. Please check your connection.'
+            });
+            setMessages([]);
+            setLoadingMessages(false);
+            return;
+          }
         
         if (messagesData && messagesData.length > 0) {
           const loadedMessages: Message[] = messagesData.map((msg) => ({
@@ -92,7 +97,15 @@ export function ChatInterface() {
         } else {
           setMessages([]);
         }
-        setLoadingMessages(false);
+        } catch (err) {
+          console.error('Unexpected error loading messages:', err);
+          toast.error('Failed to load messages', {
+            description: 'An unexpected error occurred. Please try again.'
+          });
+          setMessages([]);
+        } finally {
+          setLoadingMessages(false);
+        }
       } else {
         setMessages([
           {
@@ -147,6 +160,9 @@ export function ChatInterface() {
 
           if (uploadError) {
             console.error('Error uploading file:', uploadError);
+            toast.error(`Failed to upload ${file.name}`, {
+              description: 'Storage service is unavailable. Please try again.'
+            });
             setUploadingFiles(false);
             setUploadProgress(0);
             throw new Error(`Failed to upload ${file.name}`);
@@ -214,6 +230,10 @@ export function ChatInterface() {
           // Remove the user message we just added since it failed
           setMessages(prev => prev.filter(m => m.id !== userMessage.id));
           
+          toast.warning('Conversation not found', {
+            description: 'Please send your message again to start a new conversation.'
+          });
+          
           // Show error and let user retry
           const errorResponse: Message = {
             id: (Date.now() + 1).toString(),
@@ -227,11 +247,30 @@ export function ChatInterface() {
         }
         
         if (error.message?.includes('429') || error.message?.includes('Rate limit')) {
+          toast.error('Rate limit exceeded', {
+            description: 'Please try again in a moment.'
+          });
           throw new Error("Rate limit exceeded. Please try again in a moment.");
         }
         if (error.message?.includes('402') || error.message?.includes('Payment')) {
+          toast.error('Payment required', {
+            description: 'Please add credits to your account.'
+          });
           throw new Error("Payment required. Please add credits to your account.");
         }
+        
+        // Handle network/connection errors
+        if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+          toast.error('Connection failed', {
+            description: 'Unable to reach the server. Please check your internet connection.'
+          });
+          throw new Error("Connection failed. Please check your internet connection.");
+        }
+        
+        // Generic backend error
+        toast.error('Service unavailable', {
+          description: 'The AI service is temporarily unavailable. Please try again.'
+        });
         throw error;
       }
 
@@ -294,7 +333,24 @@ export function ChatInterface() {
         await new Promise(resolve => setTimeout(resolve, remainingTime));
       }
       
-      const errorMessage = error instanceof Error ? error.message : "I'm experiencing technical difficulties. Please try again in a moment.";
+      let errorMessage = "I'm experiencing technical difficulties. Please try again in a moment.";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      // Don't show toast again if we already showed one above
+      if (!error?.message?.includes('Rate limit') && 
+          !error?.message?.includes('Payment') && 
+          !error?.message?.includes('Connection failed') &&
+          !error?.message?.includes('Conversation not found')) {
+        toast.error('Failed to send message', {
+          description: errorMessage
+        });
+      }
+      
       const errorResponse: Message = {
         id: (Date.now() + 1).toString(),
         content: errorMessage,

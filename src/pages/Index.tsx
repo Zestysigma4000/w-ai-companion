@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { MaintenanceModal } from "@/components/MaintenanceModal";
 import { useMaintenanceMode } from "@/hooks/useMaintenanceMode";
+import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 
 const Index = () => {
@@ -14,7 +15,13 @@ const Index = () => {
 
   useEffect(() => {
     // Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('Session check error:', error);
+        toast.error('Session check failed', {
+          description: 'Unable to verify authentication status.'
+        });
+      }
       setUser(session?.user ?? null);
       if (!session) {
         navigate("/auth");

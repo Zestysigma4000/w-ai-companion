@@ -51,12 +51,35 @@ const Auth = () => {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Handle specific auth errors
+        if (error.message.includes('already registered')) {
+          toast.error('Email already registered', {
+            description: 'Please sign in or use a different email.'
+          });
+        } else if (error.message.includes('Invalid email')) {
+          toast.error('Invalid email address', {
+            description: 'Please enter a valid email.'
+          });
+        } else if (error.message.includes('fetch')) {
+          toast.error('Connection failed', {
+            description: 'Unable to reach authentication service. Please check your connection.'
+          });
+        } else {
+          toast.error('Sign up failed', {
+            description: error.message
+          });
+        }
+        return;
+      }
 
       toast.success("Account created successfully!");
       navigate("/");
     } catch (error: any) {
-      toast.error(error.message || "Failed to sign up");
+      console.error('Sign up error:', error);
+      toast.error('Unexpected error', {
+        description: 'An unexpected error occurred during sign up.'
+      });
     } finally {
       setIsLoading(false);
     }
@@ -83,12 +106,35 @@ const Auth = () => {
         password: validatedPassword,
       });
 
-      if (error) throw error;
+      if (error) {
+        // Handle specific auth errors
+        if (error.message.includes('Invalid login credentials')) {
+          toast.error('Invalid credentials', {
+            description: 'Email or password is incorrect.'
+          });
+        } else if (error.message.includes('Email not confirmed')) {
+          toast.error('Email not confirmed', {
+            description: 'Please check your email and confirm your account.'
+          });
+        } else if (error.message.includes('fetch')) {
+          toast.error('Connection failed', {
+            description: 'Unable to reach authentication service. Please check your connection.'
+          });
+        } else {
+          toast.error('Sign in failed', {
+            description: error.message
+          });
+        }
+        return;
+      }
 
       toast.success("Signed in successfully!");
       navigate("/");
     } catch (error: any) {
-      toast.error(error.message || "Failed to sign in");
+      console.error('Sign in error:', error);
+      toast.error('Unexpected error', {
+        description: 'An unexpected error occurred during sign in.'
+      });
     } finally {
       setIsLoading(false);
     }

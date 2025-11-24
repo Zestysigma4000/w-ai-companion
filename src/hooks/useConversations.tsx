@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface Conversation {
   id: string;
@@ -38,6 +39,9 @@ export function ConversationsProvider({ children }: { children: React.ReactNode 
 
       if (error) {
         console.error('Error fetching conversations:', error);
+        toast.error('Failed to load conversations', {
+          description: 'Unable to connect to the server.'
+        });
         return;
       }
 
@@ -49,6 +53,9 @@ export function ConversationsProvider({ children }: { children: React.ReactNode 
       }
     } catch (error) {
       console.error('Error fetching conversations:', error);
+      toast.error('Failed to load conversations', {
+        description: 'An unexpected error occurred.'
+      });
     }
   };
 
@@ -58,6 +65,9 @@ export function ConversationsProvider({ children }: { children: React.ReactNode 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         console.error('No session found');
+        toast.error('Authentication required', {
+          description: 'Please sign in to create conversations.'
+        });
         return;
       }
 
@@ -72,6 +82,9 @@ export function ConversationsProvider({ children }: { children: React.ReactNode 
 
       if (error) {
         console.error('Error creating conversation:', error);
+        toast.error('Failed to create conversation', {
+          description: 'Unable to save to the database.'
+        });
         return;
       }
 
@@ -82,6 +95,9 @@ export function ConversationsProvider({ children }: { children: React.ReactNode 
       }
     } catch (error) {
       console.error('Error creating conversation:', error);
+      toast.error('Failed to create conversation', {
+        description: 'An unexpected error occurred.'
+      });
     } finally {
       setLoading(false);
     }
@@ -96,6 +112,9 @@ export function ConversationsProvider({ children }: { children: React.ReactNode 
 
       if (error) {
         console.error('Error deleting conversation:', error);
+        toast.error('Failed to delete conversation', {
+          description: 'Unable to connect to the database.'
+        });
         throw new Error('Failed to delete conversation');
       }
 
@@ -117,6 +136,9 @@ export function ConversationsProvider({ children }: { children: React.ReactNode 
       await fetchConversations();
     } catch (error) {
       console.error('Error deleting conversation:', error);
+      toast.error('Failed to delete conversation', {
+        description: 'An unexpected error occurred.'
+      });
       throw error;
     }
   };
@@ -127,6 +149,9 @@ export function ConversationsProvider({ children }: { children: React.ReactNode 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         console.error('No session found');
+        toast.error('Authentication required', {
+          description: 'Please sign in to delete conversations.'
+        });
         return;
       }
 
@@ -137,6 +162,9 @@ export function ConversationsProvider({ children }: { children: React.ReactNode 
         .eq('user_id', session.user.id);
       if (msgErr) {
         console.error('Error deleting messages:', msgErr);
+        toast.error('Failed to delete messages', {
+          description: 'Unable to connect to the database.'
+        });
       }
 
       // Then delete all conversations for this user
@@ -146,13 +174,20 @@ export function ConversationsProvider({ children }: { children: React.ReactNode 
         .eq('user_id', session.user.id);
       if (convErr) {
         console.error('Error deleting conversations:', convErr);
+        toast.error('Failed to delete conversations', {
+          description: 'Unable to connect to the database.'
+        });
         throw new Error('Failed to delete conversations');
       }
 
       setConversations([]);
       setCurrentConversationId(null);
+      toast.success('All conversations deleted');
     } catch (error) {
       console.error('Error in deleteAllConversations:', error);
+      toast.error('Failed to delete conversations', {
+        description: 'An unexpected error occurred.'
+      });
       throw error;
     } finally {
       setLoading(false);

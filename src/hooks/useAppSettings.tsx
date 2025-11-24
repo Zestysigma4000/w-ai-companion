@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export interface AppSettings {
   rate_limit_enabled: boolean;
@@ -66,6 +67,9 @@ export function useAppSettings() {
 
         if (error) {
           console.error('Error loading settings:', error);
+          toast.error('Failed to load app settings', {
+            description: 'Using default settings. Some features may be limited.'
+          });
           setLoading(false);
           return;
         }
@@ -81,6 +85,9 @@ export function useAppSettings() {
         }
       } catch (error) {
         console.error('Error loading settings:', error);
+        toast.error('Failed to load app settings', {
+          description: 'Using default settings. Some features may be limited.'
+        });
       } finally {
         setLoading(false);
       }
