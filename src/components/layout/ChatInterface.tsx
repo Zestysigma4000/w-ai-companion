@@ -385,9 +385,13 @@ export function ChatInterface() {
         await refreshConversations();
       }
       
-      // Set tool details if provided
+      // CRITICAL: Set tool details IMMEDIATELY when response arrives
       if (data.toolDetails) {
+        console.log('🔧 Tool details received:', data.toolDetails);
         setToolDetails(data.toolDetails);
+      } else {
+        console.log('⚠️ No tool details in response');
+        setToolDetails(null);
       }
       
       // Reset force flags and typing preview
