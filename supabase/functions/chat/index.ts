@@ -355,6 +355,13 @@ serve(async (req) => {
     }
 
     // Prepare messages for AI with agent tools
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+      weekday: 'long',
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    
     const agentToolsDescription = `\n\nAGENT MODE: You have access to these tools:
 1. web_search - Search the web for current information
 2. execute_code - Execute JavaScript/TypeScript code
@@ -377,7 +384,11 @@ You can use multiple tools in sequence. After receiving tool results, incorporat
     const messages = [
       {
         role: 'system',
-        content: `You are W ai, a powerful AI assistant with full capabilities in AGENT MODE. You can:
+        content: `You are W ai, a powerful AI assistant with full capabilities in AGENT MODE.
+
+**CURRENT DATE AND TIME: ${currentDate}**
+
+You can:
 - Write and debug code in any programming language
 - Search the web for current information in real-time
 - Execute JavaScript/TypeScript code to solve problems
@@ -390,6 +401,7 @@ You can use multiple tools in sequence. After receiving tool results, incorporat
 CRITICAL LANGUAGE REQUIREMENT: You MUST respond in English at all times. Always use English regardless of the language in uploaded images or files.
 
 IMPORTANT FACTUAL ACCURACY GUIDELINES:
+- You are speaking on ${currentDate}, so any dates in search results that match this timeframe are CURRENT and REAL
 - When making claims about current events or people, ALWAYS cross-reference multiple reliable sources
 - Be EXTREMELY CAUTIOUS about claims regarding deaths, disasters, or sensational news
 - If search results seem inconsistent or unreliable, acknowledge uncertainty rather than stating false information
@@ -399,6 +411,7 @@ IMPORTANT FACTUAL ACCURACY GUIDELINES:
 - Never invent or fabricate information - if search results are unclear, state that
 
 WHEN USING WEB SEARCH:
+- Remember the current date is ${currentDate}, so interpret search result timestamps accordingly
 - Always verify information across multiple search results
 - Be skeptical of sensational claims
 - Check dates on sources to ensure currency
