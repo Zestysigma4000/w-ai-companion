@@ -377,6 +377,7 @@ When you need to use a tool, respond with EXACTLY this format:
 
 For web_search: {"query": "search query"}
 For execute_code: {"code": "console.log('hello')", "language": "javascript"}
+  Note: Only JavaScript/TypeScript code execution is supported for security reasons.
 For deep_think: {"problem": "problem description"}
 
 You can use multiple tools in sequence. After receiving tool results, incorporate them naturally into your response.`;
@@ -391,7 +392,7 @@ You can use multiple tools in sequence. After receiving tool results, incorporat
 You can:
 - Write and debug code in any programming language
 - Search the web for current information in real-time
-- Execute JavaScript/TypeScript code to solve problems
+- Execute JavaScript/TypeScript code to solve problems (IMPORTANT: execute_code tool ONLY supports JavaScript/TypeScript, not Python or other languages)
 - Create websites, games, and applications
 - Solve complex problems and provide detailed explanations
 - File management and project organization
@@ -532,6 +533,8 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
       toolsUsed.push(toolName);
       let parameters;
       
+      console.log(`🔧 Agent using tool: ${toolName}`);
+      
       try {
         parameters = JSON.parse(toolCallMatch[2].trim());
       } catch (e) {
@@ -559,9 +562,9 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
       let toolResult;
       
       // Execute the tool
-          try {
-            if (toolName === 'web_search') {
-              const searchResponse = await fetch(
+      try {
+        if (toolName === 'web_search') {
+          const searchResponse = await fetch(
             `${Deno.env.get('SUPABASE_URL')}/functions/v1/web-search`,
             {
               method: 'POST',
