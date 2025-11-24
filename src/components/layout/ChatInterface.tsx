@@ -72,6 +72,11 @@ export function ChatInterface() {
       unsubscribe();
     };
   }, []);
+  
+  // Debug: Log when toolDetails changes
+  useEffect(() => {
+    console.log('🎨 Tool details state changed:', toolDetails);
+  }, [toolDetails]);
 
   // Retry connection when coming back online
   useEffect(() => {
@@ -324,6 +329,7 @@ export function ChatInterface() {
       const { data, error } = aiResult;
 
       console.log('📥 Response received from edge function');
+      console.log('📊 Tool details in response:', data?.toolDetails);
 
       if (error) {
         // Handle specific error codes
@@ -386,9 +392,10 @@ export function ChatInterface() {
       }
       
       // CRITICAL: Set tool details IMMEDIATELY when response arrives
+      console.log('🔧 Setting tool details:', data.toolDetails);
       if (data.toolDetails) {
-        console.log('🔧 Tool details received:', data.toolDetails);
         setToolDetails(data.toolDetails);
+        console.log('✅ Tool details set successfully');
       } else {
         console.log('⚠️ No tool details in response');
         setToolDetails(null);

@@ -25,76 +25,62 @@ serve(async (req) => {
 
     console.log('🔍 Searching for:', query);
 
-    // Use multiple search strategies for reliability
     let results: any[] = [];
-    const currentYear = new Date().getFullYear();
     
-    // Strategy 1: Try SearXNG JSON API (more reliable than scraping)
+    // Use DuckDuckGo Instant Answer API - simple and reliable
     try {
-      const searxUrl = `https://searx.be/search?q=${encodeURIComponent(query)}&format=json&language=en&time_range=&safesearch=0&categories=general`;
-      const searxResponse = await fetch(searxUrl, {
+      const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_redirect=1&no_html=1&skip_disambig=1`;
+      const ddgResponse = await fetch(ddgUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'User-Agent': 'Mozilla/5.0 (compatible; SearchBot/1.0)',
         }
       });
       
-      if (searxResponse.ok) {
-        const data = await searxResponse.json();
-        if (data.results && Array.isArray(data.results)) {
-          results = data.results.slice(0, 8).map((r: any) => ({
-            title: r.title || 'No title',
-            url: r.url || '',
-            snippet: r.content || r.snippet || 'No description available'
-          }));
-          console.log(`✅ SearXNG found ${results.length} results`);
+      if (ddgResponse.ok) {
+        const data = await ddgResponse.json();
+        
+        // Extract from Abstract
+        if (data.AbstractURL && data.Abstract && data.Abstract.length > 0) {
+          results.push({
+            title: data.Heading || query,
+            url: data.AbstractURL,
+            snippet: data.Abstract
+          });
         }
-      }
-    } catch (error) {
-      console.log('⚠️ SearXNG failed:', error);
-    }
-    
-    // Strategy 2: Fallback to DuckDuckGo Instant Answer API
-    if (results.length === 0) {
-      try {
-        const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_redirect=1&no_html=1&skip_disambig=1`;
-        const ddgResponse = await fetch(ddgUrl);
-        const ddgData = await ddgResponse.json();
         
         // Extract from RelatedTopics
-        if (ddgData.RelatedTopics && Array.isArray(ddgData.RelatedTopics)) {
-          for (const topic of ddgData.RelatedTopics.slice(0, 8)) {
+        if (data.RelatedTopics && Array.isArray(data.RelatedTopics)) {
+          for (const topic of data.RelatedTopics) {
             if (topic.FirstURL && topic.Text) {
               results.push({
-                title: topic.Text.split(' - ')[0] || topic.Text.substring(0, 100),
+                title: topic.Text.split(' - ')[0]?.substring(0, 150) || 'Result',
                 url: topic.FirstURL,
-                snippet: topic.Text
+                snippet: topic.Text.substring(0, 300)
               });
+            }
+            // Handle nested topics
+            if (topic.Topics && Array.isArray(topic.Topics)) {
+              for (const subTopic of topic.Topics) {
+                if (subTopic.FirstURL && subTopic.Text) {
+                  results.push({
+                    title: subTopic.Text.split(' - ')[0]?.substring(0, 150) || 'Result',
+                    url: subTopic.FirstURL,
+                    snippet: subTopic.Text.substring(0, 300)
+                  });
+                }
+              }
             }
           }
         }
         
-        // Extract from AbstractSource
-        if (results.length === 0 && ddgData.AbstractURL && ddgData.Abstract) {
-          results.push({
-            title: ddgData.Heading || query,
-            url: ddgData.AbstractURL,
-            snippet: ddgData.Abstract
-          });
-        }
+        // Limit to 8 results
+        results = results.slice(0, 8);
         
-        console.log(`✅ DuckDuckGo API found ${results.length} results`);
-      } catch (error) {
-        console.log('⚠️ DuckDuckGo API failed:', error);
+        console.log(`✅ DuckDuckGo API returned ${results.length} results`);
       }
+    } catch (error) {
+      console.error('❌ Search failed:', error);
     }
-    
-    const currentDate = new Date().toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-
-    console.log(`✅ Returning ${results.length} total results for date: ${currentDate}`);
 
     return new Response(
       JSON.stringify({ 
