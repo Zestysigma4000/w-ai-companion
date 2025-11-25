@@ -13,7 +13,7 @@ const chatRequestSchema = z.object({
   message: z.string()
     .trim()
     .min(1, 'Message cannot be empty')
-    .max(50000, 'Message must be less than 50000 characters'),
+    .max(200000, 'Message must be less than 200,000 characters'),
   conversationId: z.string().uuid().optional().nullable(),
   attachments: z.array(z.object({
     name: z.string(),
