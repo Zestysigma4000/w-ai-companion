@@ -415,6 +415,15 @@ You can:
 
 CRITICAL LANGUAGE REQUIREMENT: You MUST respond in English at all times.
 
+IMPORTANT WEB SEARCH GUIDELINES:
+- When you receive web search results, YOU MUST analyze and synthesize the information
+- DO NOT simply say "no results found" or give vague responses
+- Extract key facts from the search results and present them clearly
+- If results are unclear or contradictory, acknowledge that and provide the best available information
+- Always cite the source type (knowledge graph, answer box, or organic result)
+- Be confident and direct with information found in search results
+- Current date is ${currentDate} - use this to contextualize temporal information
+
 IMPORTANT FACTUAL ACCURACY GUIDELINES:
 - You are speaking on ${currentDate}, so any dates in search results that match this timeframe are CURRENT and REAL
 - When making claims about current events, ALWAYS verify information
@@ -620,11 +629,27 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
               month: 'long', 
               day: 'numeric' 
             });
-            toolResult = `Web Search Results (as of ${searchDateTime}) for "${parameters.query}":\n\n` + 
-              results.map((r: any, i: number) => 
-                `${i + 1}. ${r.title}\n   URL: ${r.url}\n   ${r.snippet}\n`
-              ).join('\n') +
-              `\n⚠️ Note: These are current web results as of ${searchDateTime}. Provide analysis based on this current information.`;
+            
+            // Format results with better context
+            let formattedResults = `Web Search Results (as of ${searchDateTime}) for "${parameters.query}":\n\n`;
+            
+            if (results && results.length > 0) {
+              results.forEach((r: any, i: number) => {
+                const sourceType = r.type === 'knowledge_graph' ? '📚 [Knowledge Graph]' : 
+                                 r.type === 'answer_box' ? '✅ [Direct Answer]' :
+                                 r.type === 'instant_answer' ? '💡 [Instant Answer]' : 
+                                 `🔗 [Result ${i + 1}]`;
+                formattedResults += `${sourceType} ${r.title}\n`;
+                formattedResults += `   URL: ${r.url}\n`;
+                formattedResults += `   ${r.snippet}\n\n`;
+              });
+              
+              formattedResults += `\n⚠️ CRITICAL: You have received ${results.length} search results. YOU MUST analyze and synthesize this information into a helpful, direct answer. DO NOT say "no results found" or give vague responses. Extract the key information and present it clearly to the user.`;
+            } else {
+              formattedResults += `No specific results found. However, you should still attempt to answer based on your training data up to your knowledge cutoff, while acknowledging the search yielded no current results.`;
+            }
+            
+            toolResult = formattedResults;
           } else {
             toolResult = 'Search failed. Please try a different query.';
           }
