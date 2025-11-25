@@ -76,15 +76,9 @@ export function ChatInterface() {
   
   // Tool indicator display - keep showing during entire loading phase
   useEffect(() => {
-    if (isLoading) {
-      if (persistentToolDetails) {
-        console.log('🎨 Displaying tool indicator:', persistentToolDetails);
-        setToolDetails(persistentToolDetails);
-      }
-    } else {
-      // Only clear after loading is completely done
-      console.log('🎨 Loading complete, clearing indicators');
-      setToolDetails(null);
+    if (isLoading && persistentToolDetails) {
+      console.log('🎨 Displaying tool indicator:', persistentToolDetails);
+      setToolDetails(persistentToolDetails);
     }
   }, [isLoading, persistentToolDetails]);
 
@@ -449,16 +443,13 @@ export function ChatInterface() {
             setMessages(prev => prev.map(m =>
               m.id === typingMessageId ? { ...m, isTyping: false } : m
             ));
-            // Clear tool details AFTER typing animation completes
-            setTimeout(() => {
-              console.log('🧹 Clearing tool indicators');
-              setPersistentToolDetails(null);
-              setToolDetails(null);
-            }, 100);
             resolve();
           }
         }, speed);
       });
+      
+      // Delay before clearing indicators to ensure user sees them
+      await new Promise(resolve => setTimeout(resolve, 300));
     };
 
     // Try to send, or queue if it fails
@@ -501,8 +492,10 @@ export function ChatInterface() {
       };
       setMessages(prev => [...prev, errorResponse]);
     } finally {
+      // Always clear states whether success or error
       setIsLoading(false);
       setUploadingFiles(false);
+      setPersistentToolDetails(null);
       setToolDetails(null);
     }
   };
