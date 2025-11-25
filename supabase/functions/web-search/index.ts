@@ -27,50 +27,52 @@ serve(async (req) => {
 
     let results: any[] = [];
     
-    // Strategy 1: Serper API (Google search quality)
+    // Strategy 1: SerpAPI (Google search results)
     try {
-      const serperKey = Deno.env.get('SERPER_API_KEY');
-      if (serperKey) {
-        const serperResponse = await fetch('https://google.serper.dev/search', {
-          method: 'POST',
-          headers: {
-            'X-API-KEY': serperKey,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            q: query,
-            num: 10
-          })
-        });
+      const serpApiKey = Deno.env.get('SERPAPI_API_KEY');
+      if (serpApiKey) {
+        const serpApiUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${serpApiKey}&num=10`;
+        const serpResponse = await fetch(serpApiUrl);
         
-        if (serperResponse.ok) {
-          const data = await serperResponse.json();
+        if (serpResponse.ok) {
+          const data = await serpResponse.json();
           
           // Add knowledge graph if available (instant answer)
-          if (data.knowledgeGraph) {
-            const kg = data.knowledgeGraph;
+          if (data.knowledge_graph) {
+            const kg = data.knowledge_graph;
             results.push({
               title: kg.title || query,
-              url: kg.website || kg.descriptionLink || 'https://google.com',
-              snippet: kg.description || '',
+              url: kg.website || kg.source?.link || 'https://google.com',
+              snippet: kg.description || kg.type || '',
               type: 'knowledge_graph'
             });
           }
           
           // Add answer box if available
-          if (data.answerBox) {
-            const ab = data.answerBox;
+          if (data.answer_box) {
+            const ab = data.answer_box;
             results.push({
               title: ab.title || 'Direct Answer',
-              url: ab.link || 'https://google.com',
-              snippet: ab.snippet || ab.answer || '',
+              url: ab.link || ab.displayed_link || 'https://google.com',
+              snippet: ab.snippet || ab.answer || ab.result || '',
               type: 'answer_box'
             });
           }
           
+          // Add featured snippet if available
+          if (data.featured_snippet) {
+            const fs = data.featured_snippet;
+            results.push({
+              title: fs.title || 'Featured Result',
+              url: fs.link || 'https://google.com',
+              snippet: fs.snippet || '',
+              type: 'featured_snippet'
+            });
+          }
+          
           // Add organic results
-          if (data.organic && Array.isArray(data.organic)) {
-            results.push(...data.organic.slice(0, 8).map((r: any) => ({
+          if (data.organic_results && Array.isArray(data.organic_results)) {
+            results.push(...data.organic_results.slice(0, 8).map((r: any) => ({
               title: r.title || '',
               url: r.link || '',
               snippet: r.snippet || '',
@@ -78,14 +80,71 @@ serve(async (req) => {
             })));
           }
           
-          console.log(`✅ Serper API returned ${results.length} results`);
+          console.log(`✅ SerpAPI returned ${results.length} results`);
         }
       }
     } catch (error) {
-      console.error('Serper API failed:', error);
+      console.error('SerpAPI failed:', error);
     }
     
-    // Strategy 2: Fallback to DuckDuckGo Instant Answer
+    // Strategy 2: Fallback to Serper API if available
+    if (results.length === 0) {
+      try {
+        const serperKey = Deno.env.get('SERPER_API_KEY');
+        if (serperKey) {
+          const serperResponse = await fetch('https://google.serper.dev/search', {
+            method: 'POST',
+            headers: {
+              'X-API-KEY': serperKey,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              q: query,
+              num: 10
+            })
+          });
+          
+          if (serperResponse.ok) {
+            const data = await serperResponse.json();
+            
+            if (data.knowledgeGraph) {
+              const kg = data.knowledgeGraph;
+              results.push({
+                title: kg.title || query,
+                url: kg.website || kg.descriptionLink || 'https://google.com',
+                snippet: kg.description || '',
+                type: 'knowledge_graph'
+              });
+            }
+            
+            if (data.answerBox) {
+              const ab = data.answerBox;
+              results.push({
+                title: ab.title || 'Direct Answer',
+                url: ab.link || 'https://google.com',
+                snippet: ab.snippet || ab.answer || '',
+                type: 'answer_box'
+              });
+            }
+            
+            if (data.organic && Array.isArray(data.organic)) {
+              results.push(...data.organic.slice(0, 8).map((r: any) => ({
+                title: r.title || '',
+                url: r.link || '',
+                snippet: r.snippet || '',
+                type: 'organic'
+              })));
+            }
+            
+            console.log(`✅ Serper API returned ${results.length} results`);
+          }
+        }
+      } catch (error) {
+        console.error('Serper API failed:', error);
+      }
+    }
+    
+    // Strategy 3: Fallback to DuckDuckGo Instant Answer
     if (results.length === 0) {
       try {
         const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
@@ -123,7 +182,7 @@ serve(async (req) => {
       }
     }
     
-    // Strategy 3: Final fallback to Wikipedia
+    // Strategy 4: Final fallback to Wikipedia
     if (results.length === 0) {
       try {
         const wikiUrl = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=5&format=json`;
