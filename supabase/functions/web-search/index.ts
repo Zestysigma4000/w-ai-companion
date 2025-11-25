@@ -27,41 +27,97 @@ serve(async (req) => {
 
     let results: any[] = [];
     
-    // Use DuckDuckGo HTML search - actual web results
+    // Try multiple search strategies
     try {
-      const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-      const ddgResponse = await fetch(ddgUrl, {
+      // Strategy 1: Use Google Custom Search API via RapidAPI (best quality)
+      const googleUrl = `https://google-search74.p.rapidapi.com/?query=${encodeURIComponent(query)}&limit=10&related_keywords=true`;
+      const googleResponse = await fetch(googleUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'X-RapidAPI-Key': Deno.env.get('RAPIDAPI_KEY') || '',
+          'X-RapidAPI-Host': 'google-search74.p.rapidapi.com'
         }
-      });
+      }).catch(() => null);
       
-      if (ddgResponse.ok) {
-        const html = await ddgResponse.text();
-        
-        // Parse HTML results using regex patterns
-        const resultRegex = /<div class="result__body">[\s\S]*?<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
-        
-        let match;
-        while ((match = resultRegex.exec(html)) !== null && results.length < 8) {
-          const url = match[1].replace(/&amp;/g, '&');
-          const title = match[2].replace(/<[^>]*>/g, '').trim();
-          const snippet = match[3].replace(/<[^>]*>/g, '').trim();
-          
-          // Filter out low-quality results
-          if (url && url.startsWith('http') && title && snippet && snippet.length > 20) {
-            results.push({
-              title: title.substring(0, 200),
-              url: url,
-              snippet: snippet.substring(0, 400)
-            });
-          }
+      if (googleResponse?.ok) {
+        const data = await googleResponse.json();
+        if (data.results && Array.isArray(data.results)) {
+          results = data.results.slice(0, 8).map((r: any) => ({
+            title: r.title || '',
+            url: r.url || '',
+            snippet: r.description || ''
+          }));
+          console.log(`✅ Google search returned ${results.length} results`);
         }
-        
-        console.log(`✅ DuckDuckGo HTML search returned ${results.length} results`);
       }
     } catch (error) {
-      console.error('❌ Search failed:', error);
+      console.error('Google search failed:', error);
+    }
+    
+    // Strategy 2: Fallback to DuckDuckGo Instant Answer API
+    if (results.length === 0) {
+      try {
+        const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
+        const ddgResponse = await fetch(ddgUrl);
+        
+        if (ddgResponse.ok) {
+          const data = await ddgResponse.json();
+          
+          // Extract instant answer if available
+          if (data.Abstract) {
+            results.push({
+              title: data.Heading || query,
+              url: data.AbstractURL || 'https://duckduckgo.com',
+              snippet: data.Abstract
+            });
+          }
+          
+          // Add related topics
+          if (data.RelatedTopics && Array.isArray(data.RelatedTopics)) {
+            for (const topic of data.RelatedTopics.slice(0, 7)) {
+              if (topic.FirstURL && topic.Text) {
+                results.push({
+                  title: topic.Text.split(' - ')[0] || topic.Text,
+                  url: topic.FirstURL,
+                  snippet: topic.Text
+                });
+              }
+            }
+          }
+          
+          console.log(`✅ DuckDuckGo API returned ${results.length} results`);
+        }
+      } catch (error) {
+        console.error('DuckDuckGo API failed:', error);
+      }
+    }
+    
+    // Strategy 3: Fallback to Wikipedia search
+    if (results.length === 0) {
+      try {
+        const wikiUrl = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=5&format=json`;
+        const wikiResponse = await fetch(wikiUrl);
+        
+        if (wikiResponse.ok) {
+          const data = await wikiResponse.json();
+          if (Array.isArray(data) && data.length >= 4) {
+            const titles = data[1];
+            const descriptions = data[2];
+            const urls = data[3];
+            
+            for (let i = 0; i < titles.length && i < urls.length; i++) {
+              results.push({
+                title: titles[i],
+                url: urls[i],
+                snippet: descriptions[i] || 'Wikipedia article'
+              });
+            }
+          }
+          
+          console.log(`✅ Wikipedia search returned ${results.length} results`);
+        }
+      } catch (error) {
+        console.error('Wikipedia search failed:', error);
+      }
     }
 
     return new Response(

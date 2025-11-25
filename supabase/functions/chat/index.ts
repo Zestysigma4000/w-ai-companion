@@ -274,12 +274,18 @@ serve(async (req) => {
       severity: 'info'
     })
 
-    // Get conversation history for context
+    // Get conversation history for context (limit to last 20 messages to prevent token overflow)
     const { data: messageHistory } = await supabaseClient
       .from('messages')
       .select('*')
       .eq('conversation_id', conversation.id)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
+      .limit(20)
+    
+    // Reverse to get chronological order
+    if (messageHistory) {
+      messageHistory.reverse();
+    }
 
     // Process attachments for the current message
     const imageContents: any[] = []

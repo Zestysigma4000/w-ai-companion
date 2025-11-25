@@ -74,13 +74,16 @@ export function ChatInterface() {
     };
   }, []);
   
-  // Debug: Log when toolDetails changes
+  // Tool indicator display - keep showing during entire loading phase
   useEffect(() => {
-    if (isLoading && persistentToolDetails) {
-      console.log('🎨 Showing tool indicator:', persistentToolDetails);
-      setToolDetails(persistentToolDetails);
-    } else if (!isLoading) {
-      console.log('🎨 Loading complete, clearing tool indicator');
+    if (isLoading) {
+      if (persistentToolDetails) {
+        console.log('🎨 Displaying tool indicator:', persistentToolDetails);
+        setToolDetails(persistentToolDetails);
+      }
+    } else {
+      // Only clear after loading is completely done
+      console.log('🎨 Loading complete, clearing indicators');
       setToolDetails(null);
     }
   }, [isLoading, persistentToolDetails]);
@@ -338,9 +341,11 @@ export function ChatInterface() {
       console.log('📥 Response received from edge function');
       console.log('📊 Tool details in response:', data?.toolDetails);
       
+      // Set tool details immediately when received
       if (data?.toolDetails) {
-        console.log('🔧 Setting persistent tool details for display');
+        console.log('🔧 Setting tool details:', data.toolDetails);
         setPersistentToolDetails(data.toolDetails);
+        setToolDetails(data.toolDetails);
       }
 
       if (error) {
@@ -444,8 +449,12 @@ export function ChatInterface() {
             setMessages(prev => prev.map(m =>
               m.id === typingMessageId ? { ...m, isTyping: false } : m
             ));
-            console.log('🧹 Clearing persistent tool details');
-            setPersistentToolDetails(null);
+            // Clear tool details AFTER typing animation completes
+            setTimeout(() => {
+              console.log('🧹 Clearing tool indicators');
+              setPersistentToolDetails(null);
+              setToolDetails(null);
+            }, 100);
             resolve();
           }
         }, speed);
