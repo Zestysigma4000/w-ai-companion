@@ -27,33 +27,65 @@ serve(async (req) => {
 
     let results: any[] = [];
     
-    // Try multiple search strategies
+    // Strategy 1: Serper API (Google search quality)
     try {
-      // Strategy 1: Use Google Custom Search API via RapidAPI (best quality)
-      const googleUrl = `https://google-search74.p.rapidapi.com/?query=${encodeURIComponent(query)}&limit=10&related_keywords=true`;
-      const googleResponse = await fetch(googleUrl, {
-        headers: {
-          'X-RapidAPI-Key': Deno.env.get('RAPIDAPI_KEY') || '',
-          'X-RapidAPI-Host': 'google-search74.p.rapidapi.com'
-        }
-      }).catch(() => null);
-      
-      if (googleResponse?.ok) {
-        const data = await googleResponse.json();
-        if (data.results && Array.isArray(data.results)) {
-          results = data.results.slice(0, 8).map((r: any) => ({
-            title: r.title || '',
-            url: r.url || '',
-            snippet: r.description || ''
-          }));
-          console.log(`✅ Google search returned ${results.length} results`);
+      const serperKey = Deno.env.get('SERPER_API_KEY');
+      if (serperKey) {
+        const serperResponse = await fetch('https://google.serper.dev/search', {
+          method: 'POST',
+          headers: {
+            'X-API-KEY': serperKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            q: query,
+            num: 10
+          })
+        });
+        
+        if (serperResponse.ok) {
+          const data = await serperResponse.json();
+          
+          // Add knowledge graph if available (instant answer)
+          if (data.knowledgeGraph) {
+            const kg = data.knowledgeGraph;
+            results.push({
+              title: kg.title || query,
+              url: kg.website || kg.descriptionLink || 'https://google.com',
+              snippet: kg.description || '',
+              type: 'knowledge_graph'
+            });
+          }
+          
+          // Add answer box if available
+          if (data.answerBox) {
+            const ab = data.answerBox;
+            results.push({
+              title: ab.title || 'Direct Answer',
+              url: ab.link || 'https://google.com',
+              snippet: ab.snippet || ab.answer || '',
+              type: 'answer_box'
+            });
+          }
+          
+          // Add organic results
+          if (data.organic && Array.isArray(data.organic)) {
+            results.push(...data.organic.slice(0, 8).map((r: any) => ({
+              title: r.title || '',
+              url: r.link || '',
+              snippet: r.snippet || '',
+              type: 'organic'
+            })));
+          }
+          
+          console.log(`✅ Serper API returned ${results.length} results`);
         }
       }
     } catch (error) {
-      console.error('Google search failed:', error);
+      console.error('Serper API failed:', error);
     }
     
-    // Strategy 2: Fallback to DuckDuckGo Instant Answer API
+    // Strategy 2: Fallback to DuckDuckGo Instant Answer
     if (results.length === 0) {
       try {
         const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
@@ -62,23 +94,23 @@ serve(async (req) => {
         if (ddgResponse.ok) {
           const data = await ddgResponse.json();
           
-          // Extract instant answer if available
           if (data.Abstract) {
             results.push({
               title: data.Heading || query,
               url: data.AbstractURL || 'https://duckduckgo.com',
-              snippet: data.Abstract
+              snippet: data.Abstract,
+              type: 'instant_answer'
             });
           }
           
-          // Add related topics
           if (data.RelatedTopics && Array.isArray(data.RelatedTopics)) {
             for (const topic of data.RelatedTopics.slice(0, 7)) {
               if (topic.FirstURL && topic.Text) {
                 results.push({
                   title: topic.Text.split(' - ')[0] || topic.Text,
                   url: topic.FirstURL,
-                  snippet: topic.Text
+                  snippet: topic.Text,
+                  type: 'related'
                 });
               }
             }
@@ -91,7 +123,7 @@ serve(async (req) => {
       }
     }
     
-    // Strategy 3: Fallback to Wikipedia search
+    // Strategy 3: Final fallback to Wikipedia
     if (results.length === 0) {
       try {
         const wikiUrl = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=5&format=json`;
@@ -108,7 +140,8 @@ serve(async (req) => {
               results.push({
                 title: titles[i],
                 url: urls[i],
-                snippet: descriptions[i] || 'Wikipedia article'
+                snippet: descriptions[i] || 'Wikipedia article',
+                type: 'wikipedia'
               });
             }
           }
