@@ -1,25 +1,46 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, X, Share, Plus } from 'lucide-react';
+import { Download, X, Share, Plus, Smartphone, Check } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
+declare global {
+  interface WindowEventMap {
+    beforeinstallprompt: BeforeInstallPromptEvent;
+  }
+}
+
 // Detect iOS
 const isIOS = () => {
+  if (typeof navigator === 'undefined') return false;
   return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
 };
 
 // Detect if running as standalone PWA
 const isStandalone = () => {
+  if (typeof window === 'undefined') return false;
   return window.matchMedia('(display-mode: standalone)').matches || 
          (window.navigator as any).standalone === true;
 };
 
+// Store the deferred prompt globally so it persists across component instances
+let globalDeferredPrompt: BeforeInstallPromptEvent | null = null;
+
+// Listen for the event at the module level
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    globalDeferredPrompt = e;
+    // Dispatch custom event so components can react
+    window.dispatchEvent(new CustomEvent('pwainstallready'));
+  });
+}
+
 export function PWAInstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(globalDeferredPrompt);
   const [showPrompt, setShowPrompt] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [isIOSDevice, setIsIOSDevice] = useState(false);
@@ -41,32 +62,43 @@ export function PWAInstallPrompt() {
     if (isIOS()) {
       setIsIOSDevice(true);
       // Show iOS prompt after a delay
-      setTimeout(() => setShowPrompt(true), 2000);
-      return;
+      const timer = setTimeout(() => setShowPrompt(true), 3000);
+      return () => clearTimeout(timer);
     }
 
-    const handleBeforeInstall = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-      // Show prompt after a short delay
-      setTimeout(() => setShowPrompt(true), 2000);
+    // Check if we already have the deferred prompt
+    if (globalDeferredPrompt) {
+      setDeferredPrompt(globalDeferredPrompt);
+      const timer = setTimeout(() => setShowPrompt(true), 3000);
+      return () => clearTimeout(timer);
+    }
+
+    // Listen for the custom event
+    const handleInstallReady = () => {
+      setDeferredPrompt(globalDeferredPrompt);
+      setTimeout(() => setShowPrompt(true), 3000);
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    window.addEventListener('pwainstallready', handleInstallReady);
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener('pwainstallready', handleInstallReady);
     };
   }, []);
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
 
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
+    try {
+      await deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
 
-    if (outcome === 'accepted') {
-      setShowPrompt(false);
+      if (outcome === 'accepted') {
+        setShowPrompt(false);
+        globalDeferredPrompt = null;
+      }
+    } catch (error) {
+      console.error('Install prompt error:', error);
     }
     setDeferredPrompt(null);
   };
@@ -87,7 +119,7 @@ export function PWAInstallPrompt() {
       <div className="bg-card border border-border rounded-xl p-4 shadow-xl backdrop-blur-sm">
         <div className="flex items-start gap-3">
           <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center flex-shrink-0 glow-primary">
-            <Download className="w-6 h-6 text-white" />
+            <Smartphone className="w-6 h-6 text-white" />
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-foreground">Install W ai</h3>
@@ -162,63 +194,86 @@ export function PWAInstallPrompt() {
 
 // Export a manual install button for settings page
 export function InstallAppButton() {
-  const [canInstall, setCanInstall] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [canInstall, setCanInstall] = useState(!!globalDeferredPrompt);
   const [isIOSDevice, setIsIOSDevice] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
     setIsInstalled(isStandalone());
     setIsIOSDevice(isIOS());
+    setCanInstall(!!globalDeferredPrompt);
 
-    const handleBeforeInstall = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
+    const handleInstallReady = () => {
       setCanInstall(true);
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    const handleAppInstalled = () => {
+      setIsInstalled(true);
+      setCanInstall(false);
+    };
+
+    window.addEventListener('pwainstallready', handleInstallReady);
+    window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener('pwainstallready', handleInstallReady);
+      window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
 
   const handleInstall = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setCanInstall(false);
+    if (!globalDeferredPrompt) return;
+    
+    setInstalling(true);
+    try {
+      await globalDeferredPrompt.prompt();
+      const { outcome } = await globalDeferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setCanInstall(false);
+        globalDeferredPrompt = null;
+      }
+    } catch (error) {
+      console.error('Install error:', error);
+    } finally {
+      setInstalling(false);
     }
-    setDeferredPrompt(null);
   };
 
   if (isInstalled) {
     return (
-      <div className="flex items-center gap-2 text-sm text-primary">
-        <Download className="w-4 h-4" />
-        <span>App is installed</span>
+      <div className="flex items-center gap-2 text-sm text-primary bg-primary/10 px-4 py-3 rounded-lg">
+        <Check className="w-5 h-5" />
+        <span className="font-medium">App is installed!</span>
       </div>
     );
   }
 
   if (isIOSDevice) {
     return (
-      <div className="text-sm text-muted-foreground">
-        <p>To install on iOS:</p>
-        <ol className="list-decimal list-inside mt-1 space-y-1">
-          <li>Tap the Share button in Safari</li>
-          <li>Tap "Add to Home Screen"</li>
-        </ol>
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">To install on iOS/Safari:</p>
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 text-sm bg-muted/50 rounded-lg p-3">
+            <span className="font-medium text-foreground">1.</span>
+            <Share className="w-4 h-4 text-primary" />
+            <span>Tap the Share button in Safari</span>
+          </div>
+          <div className="flex items-center gap-3 text-sm bg-muted/50 rounded-lg p-3">
+            <span className="font-medium text-foreground">2.</span>
+            <Plus className="w-4 h-4 text-primary" />
+            <span>Tap "Add to Home Screen"</span>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!canInstall) {
     return (
-      <div className="text-sm text-muted-foreground">
-        Install option will appear when available
+      <div className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
+        <p className="font-medium mb-1">Installation not available</p>
+        <p>Open this app in Chrome, Edge, or another supported browser to install.</p>
       </div>
     );
   }
@@ -226,10 +281,20 @@ export function InstallAppButton() {
   return (
     <Button
       onClick={handleInstall}
-      className="bg-gradient-primary hover:opacity-90 text-white"
+      disabled={installing}
+      className="bg-gradient-primary hover:opacity-90 text-white w-full sm:w-auto"
     >
-      <Download className="w-4 h-4 mr-2" />
-      Install App
+      {installing ? (
+        <>
+          <div className="w-4 h-4 mr-2 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          Installing...
+        </>
+      ) : (
+        <>
+          <Download className="w-4 h-4 mr-2" />
+          Install App
+        </>
+      )}
     </Button>
   );
 }
