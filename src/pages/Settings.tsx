@@ -5,30 +5,45 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Smartphone } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { ArrowLeft, Smartphone, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { InstallAppButton } from "@/components/PWAInstallPrompt";
+import { useUserSettings } from "@/hooks/useUserSettings";
 
 const Settings = () => {
   const navigate = useNavigate();
-  const [temperature, setTemperature] = useState([0.7]);
-  const [maxTokens, setMaxTokens] = useState([2000]);
-  const [autoSave, setAutoSave] = useState(true);
-  const [darkMode, setDarkMode] = useState(true);
-  const [notifications, setNotifications] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [language, setLanguage] = useState("en");
-  const [fontSize, setFontSize] = useState("medium");
-  const [compactMode, setCompactMode] = useState(false);
+  const {
+    settings,
+    loading,
+    hasChanges,
+    updateSetting,
+    saveSettings,
+    resetToDefaults,
+    clearCache,
+    deleteAllConversations,
+    exportData,
+    downloadConversations,
+  } = useUserSettings();
 
-  const handleSave = () => {
-    toast.success("Settings saved successfully!");
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteAllConversations = async () => {
+    setIsDeleting(true);
+    await deleteAllConversations();
+    setIsDeleting(false);
   };
+
+  if (loading) {
+    return (
+      <div className="h-[100dvh] flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="h-[100dvh] overflow-y-auto bg-background safe-area-inset">
@@ -89,8 +104,8 @@ const Settings = () => {
                     </p>
                   </div>
                   <Switch
-                    checked={notifications}
-                    onCheckedChange={setNotifications}
+                    checked={settings.notifications}
+                    onCheckedChange={(value) => updateSetting('notifications', value)}
                   />
                 </div>
 
@@ -102,8 +117,8 @@ const Settings = () => {
                     </p>
                   </div>
                   <Switch
-                    checked={soundEnabled}
-                    onCheckedChange={setSoundEnabled}
+                    checked={settings.soundEnabled}
+                    onCheckedChange={(value) => updateSetting('soundEnabled', value)}
                   />
                 </div>
 
@@ -115,8 +130,8 @@ const Settings = () => {
                     </p>
                   </div>
                   <Switch
-                    checked={autoSave}
-                    onCheckedChange={setAutoSave}
+                    checked={settings.autoSave}
+                    onCheckedChange={(value) => updateSetting('autoSave', value)}
                   />
                 </div>
 
@@ -127,14 +142,20 @@ const Settings = () => {
                       Press Enter to send messages
                     </p>
                   </div>
-                  <Switch defaultChecked={true} />
+                  <Switch
+                    checked={settings.sendOnEnter}
+                    onCheckedChange={(value) => updateSetting('sendOnEnter', value)}
+                  />
                 </div>
 
                 <Separator />
 
                 <div className="space-y-2">
                   <Label>Language</Label>
-                  <Select value={language} onValueChange={setLanguage}>
+                  <Select 
+                    value={settings.language} 
+                    onValueChange={(value) => updateSetting('language', value)}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -154,7 +175,10 @@ const Settings = () => {
 
                 <div className="space-y-2">
                   <Label>Timezone</Label>
-                  <Select defaultValue="utc">
+                  <Select 
+                    value={settings.timezone}
+                    onValueChange={(value) => updateSetting('timezone', value)}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -182,7 +206,10 @@ const Settings = () => {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Font Size</Label>
-                  <Select value={fontSize} onValueChange={setFontSize}>
+                  <Select 
+                    value={settings.fontSize} 
+                    onValueChange={(value) => updateSetting('fontSize', value)}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -197,7 +224,10 @@ const Settings = () => {
 
                 <div className="space-y-2">
                   <Label>Message Density</Label>
-                  <Select defaultValue="comfortable">
+                  <Select 
+                    value={settings.messageDensity}
+                    onValueChange={(value) => updateSetting('messageDensity', value)}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -217,8 +247,8 @@ const Settings = () => {
                     </p>
                   </div>
                   <Switch
-                    checked={compactMode}
-                    onCheckedChange={setCompactMode}
+                    checked={settings.compactMode}
+                    onCheckedChange={(value) => updateSetting('compactMode', value)}
                   />
                 </div>
 
@@ -229,7 +259,10 @@ const Settings = () => {
                       Smooth transitions and effects
                     </p>
                   </div>
-                  <Switch defaultChecked={true} />
+                  <Switch
+                    checked={settings.enableAnimations}
+                    onCheckedChange={(value) => updateSetting('enableAnimations', value)}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -239,7 +272,10 @@ const Settings = () => {
                       Increase contrast for better visibility
                     </p>
                   </div>
-                  <Switch defaultChecked={false} />
+                  <Switch
+                    checked={settings.highContrast}
+                    onCheckedChange={(value) => updateSetting('highContrast', value)}
+                  />
                 </div>
 
                 <Separator />
@@ -268,7 +304,10 @@ const Settings = () => {
                       Help improve W ai by sharing anonymous usage data
                     </p>
                   </div>
-                  <Switch defaultChecked={false} />
+                  <Switch
+                    checked={settings.shareUsageData}
+                    onCheckedChange={(value) => updateSetting('shareUsageData', value)}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -278,7 +317,10 @@ const Settings = () => {
                       Store conversations on the server
                     </p>
                   </div>
-                  <Switch defaultChecked={true} />
+                  <Switch
+                    checked={settings.saveConversationHistory}
+                    onCheckedChange={(value) => updateSetting('saveConversationHistory', value)}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -288,7 +330,10 @@ const Settings = () => {
                       Use your data to improve recommendations
                     </p>
                   </div>
-                  <Switch defaultChecked={true} />
+                  <Switch
+                    checked={settings.personalizedExperience}
+                    onCheckedChange={(value) => updateSetting('personalizedExperience', value)}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -298,21 +343,61 @@ const Settings = () => {
                       Automatically send error reports
                     </p>
                   </div>
-                  <Switch defaultChecked={true} />
+                  <Switch
+                    checked={settings.sendCrashReports}
+                    onCheckedChange={(value) => updateSetting('sendCrashReports', value)}
+                  />
                 </div>
 
                 <Separator />
 
                 <div className="space-y-2">
-                  <Button variant="outline" className="w-full justify-start">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={exportData}
+                  >
                     Export My Data
                   </Button>
-                  <Button variant="outline" className="w-full justify-start">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={downloadConversations}
+                  >
                     Download Conversations
                   </Button>
-                  <Button variant="destructive" className="w-full justify-start">
-                    Delete All Conversations
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" className="w-full justify-start">
+                        Delete All Conversations
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete all your conversations and messages.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDeleteAllConversations}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Deleting...
+                            </>
+                          ) : (
+                            'Delete All'
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </CardContent>
             </Card>
@@ -329,56 +414,99 @@ const Settings = () => {
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="developer-mode">Developer Mode</Label>
-                    <Switch id="developer-mode" />
+                    <div className="space-y-0.5">
+                      <Label>Developer Mode</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Enable developer features
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings.developerMode}
+                      onCheckedChange={(value) => updateSetting('developerMode', value)}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="experimental">Experimental Features</Label>
-                    <Switch id="experimental" />
+                    <div className="space-y-0.5">
+                      <Label>Experimental Features</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Try new features before release
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings.experimentalFeatures}
+                      onCheckedChange={(value) => updateSetting('experimentalFeatures', value)}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="debug-mode">Debug Mode</Label>
-                    <Switch id="debug-mode" />
+                    <div className="space-y-0.5">
+                      <Label>Debug Mode</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Show debug information
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings.debugMode}
+                      onCheckedChange={(value) => updateSetting('debugMode', value)}
+                    />
                   </div>
                   <Separator />
                   <div className="space-y-2">
-                    <Label htmlFor="api-endpoint">API Endpoint</Label>
-                    <input
-                      id="api-endpoint"
-                      type="text"
-                      placeholder="https://api.example.com"
-                      className="w-full px-3 py-2 bg-muted border border-border rounded-md"
+                    <Label>Max Tokens per Request</Label>
+                    <Input
+                      type="number"
+                      value={settings.maxTokens}
+                      onChange={(e) => updateSetting('maxTokens', parseInt(e.target.value) || 4096)}
+                      min={100}
+                      max={100000}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Maximum number of tokens in AI responses (100-100000)
+                    </p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="max-tokens">Max Tokens per Request</Label>
-                    <input
-                      id="max-tokens"
+                    <Label>AI Temperature ({settings.temperature})</Label>
+                    <Input
                       type="number"
-                      placeholder="4096"
-                      className="w-full px-3 py-2 bg-muted border border-border rounded-md"
+                      value={settings.temperature}
+                      onChange={(e) => updateSetting('temperature', parseFloat(e.target.value) || 0.7)}
+                      min={0}
+                      max={2}
+                      step={0.1}
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="temperature">AI Temperature</Label>
-                    <input
-                      id="temperature"
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="2"
-                      placeholder="0.7"
-                      className="w-full px-3 py-2 bg-muted border border-border rounded-md"
-                    />
+                    <p className="text-xs text-muted-foreground">
+                      Controls randomness: 0 = focused, 2 = creative
+                    </p>
                   </div>
                   <Separator />
-                  <div className="space-y-4">
-                    <Button variant="outline" className="w-full justify-start">
+                  <div className="space-y-2">
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start"
+                      onClick={clearCache}
+                    >
                       Clear Cache
                     </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      Reset to Defaults
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start">
+                          Reset to Defaults
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Reset all settings?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will reset all settings to their default values. Your conversations will not be affected.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={resetToDefaults}>
+                            Reset Settings
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               </CardContent>
@@ -386,10 +514,16 @@ const Settings = () => {
           </TabsContent>
         </Tabs>
 
-        <div className="mt-6 flex justify-end">
+        <div className="mt-6 flex justify-end gap-2">
+          {hasChanges && (
+            <p className="text-sm text-muted-foreground self-center mr-2">
+              You have unsaved changes
+            </p>
+          )}
           <Button 
-            onClick={handleSave}
+            onClick={saveSettings}
             className="bg-gradient-primary hover:opacity-90 text-white"
+            disabled={!hasChanges}
           >
             Save Changes
           </Button>
