@@ -1,10 +1,14 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Copy, ThumbsUp, ThumbsDown, User, Sparkles, File, Download, Eye, Type } from "lucide-react";
-import { useState, useEffect, memo } from "react";
+import { Copy, ThumbsUp, ThumbsDown, User, Sparkles, File, Download, Eye, Type, Volume2, VolumeX, Loader2 } from "lucide-react";
+import { useState, useEffect, memo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from 'react-markdown';
 import { CodeBlock } from "./CodeBlock";
+import { toast } from "sonner";
+
+// Emoji reactions available
+const REACTIONS = ['👍', '❤️', '😂', '🔥', '🎉', '💡', '👏', '🤔'];
 
 interface Message {
   id: string;
@@ -14,6 +18,7 @@ interface Message {
   isTyping?: boolean;
   modelUsed?: string;
   isVisionModel?: boolean;
+  generatedImage?: string;
   attachments?: Array<{
     name: string;
     path: string;
@@ -29,12 +34,83 @@ interface MessageBubbleProps {
 export const MessageBubble = memo(function MessageBubble({ message }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  const [reactions, setReactions] = useState<string[]>([]);
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const isUser = message.role === "user";
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(message.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleReaction = (emoji: string) => {
+    if (reactions.includes(emoji)) {
+      setReactions(reactions.filter(r => r !== emoji));
+    } else {
+      setReactions([...reactions, emoji]);
+    }
+    setShowReactionPicker(false);
+  };
+
+  const handlePlayAudio = async () => {
+    if (isPlayingAudio && audioRef.current) {
+      audioRef.current.pause();
+      setIsPlayingAudio(false);
+      return;
+    }
+
+    setIsLoadingAudio(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Please sign in to use voice features');
+        return;
+      }
+
+      const response = await supabase.functions.invoke('text-to-speech', {
+        body: { text: message.content, voice: 'alloy' }
+      });
+
+      if (response.error || response.data?.error) {
+        throw new Error(response.data?.error || 'Failed to generate speech');
+      }
+
+      const audioContent = response.data.audioContent;
+      const audioBlob = new Blob(
+        [Uint8Array.from(atob(audioContent), c => c.charCodeAt(0))],
+        { type: 'audio/mp3' }
+      );
+      const audioUrl = URL.createObjectURL(audioBlob);
+
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        setIsPlayingAudio(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      audio.onerror = () => {
+        setIsPlayingAudio(false);
+        toast.error('Failed to play audio');
+      };
+
+      await audio.play();
+      setIsPlayingAudio(true);
+    } catch (error) {
+      console.error('TTS error:', error);
+      toast.error('Voice playback is not available');
+    } finally {
+      setIsLoadingAudio(false);
+    }
   };
 
   // Load signed URLs for images
@@ -205,6 +281,34 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
               )
             ) : (
               <>
+                {/* Generated Image Display */}
+                {message.generatedImage && (
+                  <div className="mb-3 rounded-xl overflow-hidden border border-border bg-muted/30">
+                    <img
+                      src={message.generatedImage}
+                      alt="AI Generated"
+                      className="max-w-full h-auto max-h-[400px] object-contain mx-auto"
+                    />
+                    <div className="p-2 flex items-center justify-between text-xs text-muted-foreground">
+                      <span>🎨 AI Generated Image</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const a = document.createElement('a');
+                          a.href = message.generatedImage!;
+                          a.download = 'generated-image.png';
+                          a.click();
+                        }}
+                        className="h-6 px-2"
+                      >
+                        <Download className="w-3 h-3 mr-1" />
+                        Save
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="text-sm leading-relaxed">
                   <ReactMarkdown
                     components={{
@@ -311,9 +415,24 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
           </div>
         )}
 
+        {/* Reactions Display */}
+        {reactions.length > 0 && (
+          <div className={`flex gap-1 mt-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
+            {reactions.map((emoji, index) => (
+              <button
+                key={index}
+                onClick={() => handleReaction(emoji)}
+                className="text-sm hover:scale-110 transition-transform"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Message Actions - Show on hover */}
         {!message.isTyping && (
-          <div className={`flex items-center gap-1 mt-1 opacity-0 md:group-hover:opacity-100 transition-opacity ${isUser ? 'flex-row-reverse' : ''}`}>
+          <div className={`flex items-center gap-1 mt-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity ${isUser ? 'flex-row-reverse' : ''}`}>
             <Button
               variant="ghost"
               size="sm"
@@ -326,6 +445,50 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
             
             {!isUser && (
               <>
+                {/* Voice playback button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handlePlayAudio}
+                  disabled={isLoadingAudio}
+                  className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  title={isPlayingAudio ? 'Stop' : 'Listen'}
+                >
+                  {isLoadingAudio ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : isPlayingAudio ? (
+                    <VolumeX className="w-3 h-3" />
+                  ) : (
+                    <Volume2 className="w-3 h-3" />
+                  )}
+                </Button>
+
+                {/* Reaction picker toggle */}
+                <div className="relative">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowReactionPicker(!showReactionPicker)}
+                    className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    😊
+                  </Button>
+                  
+                  {showReactionPicker && (
+                    <div className="absolute bottom-full left-0 mb-1 p-2 bg-popover border border-border rounded-lg shadow-lg flex gap-1 z-10">
+                      {REACTIONS.map((emoji) => (
+                        <button
+                          key={emoji}
+                          onClick={() => handleReaction(emoji)}
+                          className="text-lg hover:scale-125 transition-transform p-1"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <Button
                   variant="ghost"
                   size="sm"
