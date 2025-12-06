@@ -1,6 +1,6 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Copy, ThumbsUp, ThumbsDown, User, Sparkles, File, Download } from "lucide-react";
+import { Copy, ThumbsUp, ThumbsDown, User, Sparkles, File, Download, Eye, Type } from "lucide-react";
 import { useState, useEffect, memo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from 'react-markdown';
@@ -12,6 +12,8 @@ interface Message {
   role: "user" | "assistant";
   timestamp: Date;
   isTyping?: boolean;
+  modelUsed?: string;
+  isVisionModel?: boolean;
   attachments?: Array<{
     name: string;
     path: string;
@@ -323,6 +325,30 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
                 minute: '2-digit' 
               })}
             </span>
+            
+            {/* Model Indicator - Only show for assistant messages */}
+            {!isUser && message.modelUsed && (
+              <div 
+                className={`flex items-center gap-1 ml-2 px-2 py-0.5 rounded-full text-xs ${
+                  message.isVisionModel 
+                    ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' 
+                    : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                }`}
+                title={message.modelUsed}
+              >
+                {message.isVisionModel ? (
+                  <>
+                    <Eye className="w-3 h-3" />
+                    <span className="hidden sm:inline">Vision</span>
+                  </>
+                ) : (
+                  <>
+                    <Type className="w-3 h-3" />
+                    <span className="hidden sm:inline">Text</span>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -333,6 +359,7 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
   return (
     prevProps.message.id === nextProps.message.id &&
     prevProps.message.content === nextProps.message.content &&
-    prevProps.message.isTyping === nextProps.message.isTyping
+    prevProps.message.isTyping === nextProps.message.isTyping &&
+    prevProps.message.modelUsed === nextProps.message.modelUsed
   );
 });

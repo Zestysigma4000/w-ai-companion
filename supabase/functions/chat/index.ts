@@ -812,7 +812,9 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
         response: assistantMessage,
         conversationId: conversation.id,
         toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined,
-        toolDetails: firstToolDetails
+        toolDetails: firstToolDetails,
+        modelUsed: modelToUse,
+        isVisionModel: hasImages
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -19,6 +19,8 @@ interface Message {
   role: "user" | "assistant";
   timestamp: Date;
   isTyping?: boolean;
+  modelUsed?: string;
+  isVisionModel?: boolean;
   attachments?: Array<{
     name: string;
     path: string;
@@ -419,6 +421,8 @@ export function ChatInterface() {
           role: 'assistant',
           timestamp: new Date(),
           isTyping: true,
+          modelUsed: data.modelUsed,
+          isVisionModel: data.isVisionModel,
         },
       ]);
 
