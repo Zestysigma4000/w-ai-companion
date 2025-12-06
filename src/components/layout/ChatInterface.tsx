@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "../chat/MessageBubble";
-import { Send, File, Brain, Loader2, Search, Code, Sparkles } from "lucide-react";
+import { Send, File, Brain, Loader2, Search, Code, Sparkles, Image } from "lucide-react";
 import { useConversations } from "@/hooks/useConversations";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { useUserSettings } from "@/hooks/useUserSettings";
@@ -21,6 +21,7 @@ interface Message {
   isTyping?: boolean;
   modelUsed?: string;
   isVisionModel?: boolean;
+  generatedImage?: string;
   attachments?: Array<{
     name: string;
     path: string;
@@ -50,6 +51,8 @@ export function ChatInterface() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [deepThinkEnabled, setDeepThinkEnabled] = useState(false);
   const [forceWebSearch, setForceWebSearch] = useState(false);
+  const [imageGenMode, setImageGenMode] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [toolDetails, setToolDetails] = useState<{ type: string; details: string } | null>(null);
   const [persistentToolDetails, setPersistentToolDetails] = useState<{ type: string; details: string } | null>(null);
   const [typingPreview, setTypingPreview] = useState("");
@@ -560,6 +563,82 @@ export function ChatInterface() {
     setAttachedFiles(files);
   };
 
+  // Image generation handler
+  const handleGenerateImage = async () => {
+    if (!inputValue.trim() || isGeneratingImage) return;
+
+    const prompt = inputValue;
+    setInputValue("");
+    setIsGeneratingImage(true);
+    setImageGenMode(false);
+
+    // Add user message
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      content: `🎨 Generate image: ${prompt}`,
+      role: "user",
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, userMessage]);
+
+    // Add loading message
+    const loadingId = (Date.now() + 1).toString();
+    setMessages(prev => [...prev, {
+      id: loadingId,
+      content: "🖼️ Creating your image...",
+      role: "assistant",
+      timestamp: new Date(),
+      isTyping: true,
+    }]);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("Please sign in to generate images");
+      }
+
+      const response = await supabase.functions.invoke('generate-image', {
+        body: { prompt }
+      });
+
+      if (response.error || response.data?.error) {
+        throw new Error(response.data?.error || 'Failed to generate image');
+      }
+
+      const { imageUrl, description } = response.data;
+
+      // Update the loading message with the result
+      setMessages(prev => prev.map(m => 
+        m.id === loadingId 
+          ? {
+              ...m,
+              content: description || `Here's your generated image for: "${prompt}"`,
+              isTyping: false,
+              generatedImage: imageUrl,
+            }
+          : m
+      ));
+
+    } catch (error) {
+      console.error('Image generation error:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Failed to generate image';
+      
+      setMessages(prev => prev.map(m => 
+        m.id === loadingId 
+          ? {
+              ...m,
+              content: `Sorry, I couldn't generate that image. ${errorMsg}`,
+              isTyping: false,
+            }
+          : m
+      ));
+
+      toast.error('Image generation failed', { description: errorMsg });
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -799,7 +878,7 @@ export function ChatInterface() {
           )}
 
           {/* Active tools indicator */}
-          {(forceWebSearch || deepThinkEnabled) && (
+          {(forceWebSearch || deepThinkEnabled || imageGenMode) && (
             <div className="mb-2 flex flex-wrap gap-2">
               {forceWebSearch && (
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs text-primary">
@@ -820,6 +899,18 @@ export function ChatInterface() {
                   <button 
                     onClick={() => setDeepThinkEnabled(false)}
                     className="ml-1 hover:text-purple-400/70"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+              {imageGenMode && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-pink-500/10 border border-pink-500/20 text-xs text-pink-400">
+                  <Image className="w-3 h-3" />
+                  <span>Image Generation mode</span>
+                  <button 
+                    onClick={() => setImageGenMode(false)}
+                    className="ml-1 hover:text-pink-400/70"
                   >
                     ×
                   </button>
@@ -859,13 +950,27 @@ export function ChatInterface() {
               >
                 <Brain className="w-4 h-4" />
               </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setImageGenMode(prev => !prev)}
+                title={imageGenMode ? "Image Generation enabled" : "Generate Image"}
+                className={`h-10 w-10 p-0 flex-shrink-0 transition-colors ${
+                  imageGenMode 
+                    ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30' 
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
+              >
+                <Image className="w-4 h-4" />
+              </Button>
               
               <Textarea
                 ref={textareaRef}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Ask W ai anything..."
+                placeholder={imageGenMode ? "Describe the image you want to create..." : "Ask W ai anything..."}
                 className="flex-1 min-h-[40px] max-h-32 resize-none border-0 bg-transparent p-2 focus-visible:ring-0 placeholder:text-muted-foreground text-base"
                 rows={1}
               />
@@ -879,12 +984,22 @@ export function ChatInterface() {
                 )}
                 
                 <Button 
-                  onClick={handleSendMessage}
-                  disabled={!inputValue.trim() || isLoading || uploadingFiles}
-                  className="bg-gradient-primary hover:opacity-90 text-white glow-primary transition-all duration-300 h-10 w-10 p-0"
+                  onClick={imageGenMode ? handleGenerateImage : handleSendMessage}
+                  disabled={!inputValue.trim() || isLoading || uploadingFiles || isGeneratingImage}
+                  className={`transition-all duration-300 h-10 w-10 p-0 ${
+                    imageGenMode 
+                      ? 'bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white' 
+                      : 'bg-gradient-primary hover:opacity-90 text-white glow-primary'
+                  }`}
                   size="sm"
                 >
-                  <Send className="w-4 h-4" />
+                  {isGeneratingImage ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : imageGenMode ? (
+                    <Image className="w-4 h-4" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
                 </Button>
               </div>
             </div>
