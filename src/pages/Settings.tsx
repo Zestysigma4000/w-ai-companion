@@ -8,10 +8,11 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Smartphone } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+import { InstallAppButton } from "@/components/PWAInstallPrompt";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -56,6 +57,22 @@ const Settings = () => {
           </TabsList>
 
           <TabsContent value="general" className="space-y-4">
+            {/* Install App Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Smartphone className="w-5 h-5" />
+                  Install App
+                </CardTitle>
+                <CardDescription>
+                  Install W ai on your device for the best experience
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <InstallAppButton />
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>General Settings</CardTitle>

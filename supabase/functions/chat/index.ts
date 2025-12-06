@@ -403,7 +403,9 @@ You can use multiple tools in sequence. After receiving tool results, incorporat
 
 **CURRENT DATE AND TIME: ${currentDate}**
 
-${isSimpleQuery ? `**RESPONSE STYLE: This is a simple, straightforward question. Provide a BRIEF, DIRECT answer (2-4 sentences max). Be concise and to the point.**` : `**RESPONSE STYLE: This appears to be a complex question. Provide a thorough, detailed response with explanations and context.**`}
+${deepThinkEnabled ? `**DEEP THINK MODE ENABLED**: You MUST provide exceptionally thorough, step-by-step reasoning for this response. Break down the problem systematically, consider multiple angles, show your thought process explicitly, and provide comprehensive analysis. Take your time to think deeply before responding.` : ''}
+
+${isSimpleQuery && !deepThinkEnabled ? `**RESPONSE STYLE: This is a simple, straightforward question. Provide a BRIEF, DIRECT answer (2-4 sentences max). Be concise and to the point.**` : !deepThinkEnabled ? `**RESPONSE STYLE: This appears to be a complex question. Provide a thorough, detailed response with explanations and context.**` : ''}
 
 You can:
 - Write and debug code in any programming language
@@ -431,7 +433,7 @@ IMPORTANT FACTUAL ACCURACY GUIDELINES:
 - If you cannot verify something with confidence, say so explicitly
 - Never invent or fabricate information
 
-${isSimpleQuery ? `**REMEMBER: Keep your response SHORT and SIMPLE for this straightforward question.**` : ''}
+${deepThinkEnabled ? `**REMEMBER: DEEP THINK MODE is active. Provide thorough, step-by-step analysis.**` : isSimpleQuery ? `**REMEMBER: Keep your response SHORT and SIMPLE for this straightforward question.**` : ''}
 
 Be helpful, autonomous, and proactive in using your tools when needed. But above all, be ACCURATE and acknowledge uncertainty when appropriate.`
       },
@@ -532,16 +534,20 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
     const toolsUsed: string[] = [];
     let firstToolDetails: { type: string; details: string } | null = null;
     
-    // Handle forced tools
+    // Handle forced tools - prepend tool calls when user explicitly enables them
     if (forceWebSearch && !assistantMessage.includes('<tool_call>')) {
-      // Prepend a web search tool call
+      // Escape quotes in message for JSON
+      const safeQuery = message.replace(/"/g, '\\"').substring(0, 200);
       assistantMessage = `<tool_call>
 <tool_name>web_search</tool_name>
-<parameters>{"query": "${message}"}</parameters>
+<parameters>{"query": "${safeQuery}"}</parameters>
 </tool_call>
 
 ` + assistantMessage;
     }
+    
+    // Handle deep think mode - modify response approach rather than adding a tool call
+    // Deep think is handled in the system prompt, not as a separate tool call
     
     while (iteration < maxIterations) {
       // Check for tool calls in response
