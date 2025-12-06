@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, X, Share, Plus, Smartphone, Check } from 'lucide-react';
+import { Download, X, Share, Plus, Smartphone, Check, Menu, MoreVertical } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -13,10 +13,32 @@ declare global {
   }
 }
 
+type BrowserType = 'chrome' | 'firefox' | 'opera' | 'safari' | 'edge' | 'samsung' | 'other';
+
+// Detect browser
+const detectBrowser = (): BrowserType => {
+  if (typeof navigator === 'undefined') return 'other';
+  const ua = navigator.userAgent.toLowerCase();
+  
+  if (ua.includes('opr') || ua.includes('opera')) return 'opera';
+  if (ua.includes('firefox') || ua.includes('fxios')) return 'firefox';
+  if (ua.includes('edg')) return 'edge';
+  if (ua.includes('samsungbrowser')) return 'samsung';
+  if (ua.includes('safari') && !ua.includes('chrome')) return 'safari';
+  if (ua.includes('chrome')) return 'chrome';
+  return 'other';
+};
+
 // Detect iOS
 const isIOS = () => {
   if (typeof navigator === 'undefined') return false;
   return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+};
+
+// Detect Android
+const isAndroid = () => {
+  if (typeof navigator === 'undefined') return false;
+  return /android/i.test(navigator.userAgent);
 };
 
 // Detect if running as standalone PWA
@@ -196,12 +218,16 @@ export function PWAInstallPrompt() {
 export function InstallAppButton() {
   const [canInstall, setCanInstall] = useState(!!globalDeferredPrompt);
   const [isIOSDevice, setIsIOSDevice] = useState(false);
+  const [isAndroidDevice, setIsAndroidDevice] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
   const [installing, setInstalling] = useState(false);
+  const [browser, setBrowser] = useState<BrowserType>('other');
 
   useEffect(() => {
     setIsInstalled(isStandalone());
     setIsIOSDevice(isIOS());
+    setIsAndroidDevice(isAndroid());
+    setBrowser(detectBrowser());
     setCanInstall(!!globalDeferredPrompt);
 
     const handleInstallReady = () => {
@@ -249,6 +275,7 @@ export function InstallAppButton() {
     );
   }
 
+  // iOS Safari instructions
   if (isIOSDevice) {
     return (
       <div className="space-y-3">
@@ -269,32 +296,117 @@ export function InstallAppButton() {
     );
   }
 
-  if (!canInstall) {
+  // If we have the install prompt available (Chrome, Edge, Opera on Android/desktop)
+  if (canInstall) {
     return (
-      <div className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
-        <p className="font-medium mb-1">Installation not available</p>
-        <p>Open this app in Chrome, Edge, or another supported browser to install.</p>
+      <Button
+        onClick={handleInstall}
+        disabled={installing}
+        className="bg-gradient-primary hover:opacity-90 text-white w-full sm:w-auto"
+      >
+        {installing ? (
+          <>
+            <div className="w-4 h-4 mr-2 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            Installing...
+          </>
+        ) : (
+          <>
+            <Download className="w-4 h-4 mr-2" />
+            Install App
+          </>
+        )}
+      </Button>
+    );
+  }
+
+  // Firefox Android instructions
+  if (browser === 'firefox' && isAndroidDevice) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">To install on Firefox for Android:</p>
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 text-sm bg-muted/50 rounded-lg p-3">
+            <span className="font-medium text-foreground">1.</span>
+            <MoreVertical className="w-4 h-4 text-primary" />
+            <span>Tap the menu button (⋮)</span>
+          </div>
+          <div className="flex items-center gap-3 text-sm bg-muted/50 rounded-lg p-3">
+            <span className="font-medium text-foreground">2.</span>
+            <Plus className="w-4 h-4 text-primary" />
+            <span>Tap "Install"</span>
+          </div>
+        </div>
       </div>
     );
   }
 
+  // Firefox Desktop - doesn't support PWA installation
+  if (browser === 'firefox' && !isAndroidDevice) {
+    return (
+      <div className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
+        <p className="font-medium mb-2">Firefox Desktop Limitation</p>
+        <p>Firefox on desktop doesn't support app installation. To install this app, please use:</p>
+        <ul className="list-disc list-inside mt-2 space-y-1">
+          <li>Chrome, Edge, or Opera on desktop</li>
+          <li>Firefox, Chrome, or Samsung Internet on Android</li>
+          <li>Safari on iOS</li>
+        </ul>
+      </div>
+    );
+  }
+
+  // Opera instructions (if beforeinstallprompt didn't fire)
+  if (browser === 'opera') {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">To install on Opera:</p>
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 text-sm bg-muted/50 rounded-lg p-3">
+            <span className="font-medium text-foreground">1.</span>
+            <Menu className="w-4 h-4 text-primary" />
+            <span>Click the menu button</span>
+          </div>
+          <div className="flex items-center gap-3 text-sm bg-muted/50 rounded-lg p-3">
+            <span className="font-medium text-foreground">2.</span>
+            <Plus className="w-4 h-4 text-primary" />
+            <span>Click "Install app" or "Add to Home screen"</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Samsung Internet
+  if (browser === 'samsung') {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">To install on Samsung Internet:</p>
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 text-sm bg-muted/50 rounded-lg p-3">
+            <span className="font-medium text-foreground">1.</span>
+            <Menu className="w-4 h-4 text-primary" />
+            <span>Tap the menu button</span>
+          </div>
+          <div className="flex items-center gap-3 text-sm bg-muted/50 rounded-lg p-3">
+            <span className="font-medium text-foreground">2.</span>
+            <Plus className="w-4 h-4 text-primary" />
+            <span>Tap "Add page to" → "Home screen"</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Generic fallback
   return (
-    <Button
-      onClick={handleInstall}
-      disabled={installing}
-      className="bg-gradient-primary hover:opacity-90 text-white w-full sm:w-auto"
-    >
-      {installing ? (
-        <>
-          <div className="w-4 h-4 mr-2 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          Installing...
-        </>
-      ) : (
-        <>
-          <Download className="w-4 h-4 mr-2" />
-          Install App
-        </>
-      )}
-    </Button>
+    <div className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
+      <p className="font-medium mb-1">Installation</p>
+      <p>Open this app in a supported browser to install:</p>
+      <ul className="list-disc list-inside mt-2 space-y-1">
+        <li>Chrome, Edge, or Opera on desktop/Android</li>
+        <li>Firefox on Android</li>
+        <li>Safari on iOS</li>
+      </ul>
+    </div>
   );
 }
