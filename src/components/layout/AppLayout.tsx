@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { ChatInterface } from "./ChatInterface";
+import { MobileNav } from "./MobileNav";
+import { HistorySheet } from "./HistorySheet";
 import { Button } from "@/components/ui/button";
 import { Menu, Sparkles, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +13,7 @@ import { ConversationsProvider } from "@/hooks/useConversations";
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -27,13 +30,14 @@ export function AppLayout() {
     <SidebarProvider>
       <ConversationsProvider>
         <div className="h-[100dvh] w-full flex bg-background overflow-hidden">
-          {/* Main Header */}
+          {/* Main Header - Desktop always visible, Mobile simplified */}
           <div className="fixed top-0 left-0 right-0 z-50 h-14 bg-background/80 backdrop-blur-lg border-b border-border flex items-center px-3 md:px-4 gap-2 md:gap-3 safe-area-top">
+            {/* Hamburger menu - Desktop only */}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="hover:bg-muted min-h-[44px] min-w-[44px] flex items-center justify-center"
+              className="hover:bg-muted min-h-[44px] min-w-[44px] items-center justify-center hidden md:flex"
             >
               <Menu className="h-5 w-5" />
             </Button>
@@ -61,24 +65,23 @@ export function AppLayout() {
             </div>
           </div>
   
-          {/* Sidebar - Overlay on mobile, static on desktop */}
+          {/* Sidebar - Desktop only */}
           {sidebarOpen && (
-            <>
-              {/* Mobile overlay backdrop */}
-              <div 
-                className="fixed inset-0 bg-black/50 z-40 md:hidden"
-                style={{ top: '3.5rem' }}
-                onClick={() => setSidebarOpen(false)}
-              />
-              {/* Sidebar - fixed on mobile, static on desktop */}
+            <div className="hidden md:block">
               <AppSidebar />
-            </>
+            </div>
           )}
           
-          {/* Main Content Area */}
-          <main className="flex-1 pt-14 flex flex-col min-w-0 h-full overflow-hidden">
+          {/* Main Content Area - Extra padding for mobile bottom nav */}
+          <main className="flex-1 pt-14 pb-20 md:pb-0 flex flex-col min-w-0 h-full overflow-hidden">
             <ChatInterface />
           </main>
+
+          {/* Mobile Bottom Navigation */}
+          <MobileNav onOpenHistory={() => setHistoryOpen(true)} />
+          
+          {/* Mobile History Sheet */}
+          <HistorySheet open={historyOpen} onOpenChange={setHistoryOpen} />
         </div>
       </ConversationsProvider>
     </SidebarProvider>
