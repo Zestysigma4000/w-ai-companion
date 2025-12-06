@@ -55,26 +55,68 @@ const defaultSettings: UserSettings = {
   temperature: 0.7,
 };
 
-const STORAGE_KEY = 'w-ai-user-settings';
+const LOCAL_STORAGE_KEY = 'w-ai-user-settings';
 
 export function useUserSettings() {
   const [settings, setSettings] = useState<UserSettings>(defaultSettings);
   const [loading, setLoading] = useState(true);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  // Load settings from localStorage on mount
+  // Load settings - first from localStorage, then from database if logged in
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setSettings({ ...defaultSettings, ...parsed });
+    const loadSettings = async () => {
+      try {
+        // Load from localStorage first (for instant loading)
+        const localSaved = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (localSaved) {
+          const parsed = JSON.parse(localSaved);
+          setSettings({ ...defaultSettings, ...parsed });
+        }
+
+        // Check if user is logged in
+        const { data: { user } } = await supabase.auth.getUser();
+        setUserId(user?.id ?? null);
+
+        if (user) {
+          // Try to load from database
+          const { data, error } = await supabase
+            .from('user_settings')
+            .select('settings')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (error && error.code !== 'PGRST116') {
+            console.error('Error loading settings from database:', error);
+          }
+
+          if (data?.settings) {
+            const dbSettings = { ...defaultSettings, ...(data.settings as Partial<UserSettings>) };
+            setSettings(dbSettings);
+            // Update localStorage with database settings
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dbSettings));
+          }
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error loading settings:', error);
-    } finally {
-      setLoading(false);
-    }
+    };
+
+    loadSettings();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUserId(session?.user?.id ?? null);
+      if (event === 'SIGNED_IN' && session?.user) {
+        // Reload settings when user signs in
+        setTimeout(() => loadSettings(), 0);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Apply settings effects
@@ -114,23 +156,68 @@ export function useUserSettings() {
   }, [settings.fontSize, settings.compactMode, settings.highContrast, settings.enableAnimations, settings.messageDensity]);
 
   const updateSetting = useCallback(<K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
-    setSettings(prev => {
-      const newSettings = { ...prev, [key]: value };
-      return newSettings;
-    });
+    setSettings(prev => ({ ...prev, [key]: value }));
     setHasChanges(true);
   }, []);
 
-  const saveSettings = useCallback(() => {
+  const saveSettings = useCallback(async () => {
+    setIsSyncing(true);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+      // Always save to localStorage
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(settings));
+
+      // If logged in, sync to database
+      if (userId) {
+        // First check if settings exist
+        const { data: existing } = await supabase
+          .from('user_settings')
+          .select('id')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        let error;
+        if (existing) {
+          // Update existing
+          const result = await supabase
+            .from('user_settings')
+            .update({
+              settings: JSON.parse(JSON.stringify(settings)),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', userId);
+          error = result.error;
+        } else {
+          // Insert new
+          const result = await supabase
+            .from('user_settings')
+            .insert([{
+              user_id: userId,
+              settings: JSON.parse(JSON.stringify(settings)),
+            }]);
+          error = result.error;
+        }
+
+        if (error) {
+          console.error('Error saving settings to database:', error);
+          toast.error('Settings saved locally but failed to sync to cloud');
+          setIsSyncing(false);
+          setHasChanges(false);
+          return;
+        }
+        
+        toast.success('Settings saved and synced to cloud!');
+      } else {
+        toast.success('Settings saved locally!');
+      }
+      
       setHasChanges(false);
-      toast.success('Settings saved successfully!');
     } catch (error) {
       console.error('Error saving settings:', error);
       toast.error('Failed to save settings');
+    } finally {
+      setIsSyncing(false);
     }
-  }, [settings]);
+  }, [settings, userId]);
 
   const resetToDefaults = useCallback(() => {
     setSettings(defaultSettings);
@@ -259,6 +346,8 @@ export function useUserSettings() {
     settings,
     loading,
     hasChanges,
+    isSyncing,
+    isLoggedIn: !!userId,
     updateSetting,
     saveSettings,
     resetToDefaults,

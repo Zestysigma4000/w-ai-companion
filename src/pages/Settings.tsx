@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Smartphone, Loader2 } from "lucide-react";
+import { ArrowLeft, Smartphone, Loader2, Cloud, CloudOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { InstallAppButton } from "@/components/PWAInstallPrompt";
@@ -20,6 +20,8 @@ const Settings = () => {
     settings,
     loading,
     hasChanges,
+    isSyncing,
+    isLoggedIn,
     updateSetting,
     saveSettings,
     resetToDefaults,
@@ -514,19 +516,41 @@ const Settings = () => {
           </TabsContent>
         </Tabs>
 
-        <div className="mt-6 flex justify-end gap-2">
-          {hasChanges && (
-            <p className="text-sm text-muted-foreground self-center mr-2">
-              You have unsaved changes
-            </p>
-          )}
-          <Button 
-            onClick={saveSettings}
-            className="bg-gradient-primary hover:opacity-90 text-white"
-            disabled={!hasChanges}
-          >
-            Save Changes
-          </Button>
+        <div className="mt-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center gap-2 text-sm">
+            {isLoggedIn ? (
+              <>
+                <Cloud className="w-4 h-4 text-primary" />
+                <span className="text-muted-foreground">Settings will sync to cloud</span>
+              </>
+            ) : (
+              <>
+                <CloudOff className="w-4 h-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Log in to sync settings across devices</span>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {hasChanges && (
+              <p className="text-sm text-muted-foreground">
+                Unsaved changes
+              </p>
+            )}
+            <Button 
+              onClick={saveSettings}
+              className="bg-gradient-primary hover:opacity-90 text-white"
+              disabled={!hasChanges || isSyncing}
+            >
+              {isSyncing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
