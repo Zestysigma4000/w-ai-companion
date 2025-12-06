@@ -6,13 +6,13 @@ import { MessageBubble } from "../chat/MessageBubble";
 import { Send, File, Brain, Loader2, Search, Code, Sparkles } from "lucide-react";
 import { useConversations } from "@/hooks/useConversations";
 import { useAppSettings } from "@/hooks/useAppSettings";
+import { useUserSettings } from "@/hooks/useUserSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { VoiceInput } from "../chat/VoiceInput";
 import { FileAttachment } from "../chat/FileAttachment";
 import { toast } from "sonner";
 import { retryWithBackoff } from "@/utils/retry";
 import { requestQueue } from "@/utils/requestQueue";
-
 interface Message {
   id: string;
   content: string;
@@ -31,7 +31,8 @@ interface Message {
 
 export function ChatInterface() {
   const { currentConversationId, setCurrentConversationId, refreshConversations } = useConversations();
-  const { settings } = useAppSettings();
+  const { settings: appSettings } = useAppSettings();
+  const { settings: userSettings } = useUserSettings();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -447,6 +448,36 @@ export function ChatInterface() {
             setMessages(prev => prev.map(m =>
               m.id === typingMessageId ? { ...m, isTyping: false } : m
             ));
+            
+            // Play notification sound if enabled
+            if (userSettings.soundEnabled) {
+              try {
+                const audio = new Audio('/notification.mp3');
+                audio.volume = 0.3;
+                audio.play().catch(() => {
+                  // Audio play failed, silently ignore (browser autoplay restrictions)
+                });
+              } catch (e) {
+                // Audio not available
+              }
+            }
+            
+            // Show browser notification if enabled and page is not focused
+            if (userSettings.notifications && document.hidden) {
+              try {
+                if (Notification.permission === 'granted') {
+                  new Notification('W AI', {
+                    body: 'AI has responded to your message',
+                    icon: '/pwa-192x192.png',
+                  });
+                } else if (Notification.permission !== 'denied') {
+                  Notification.requestPermission();
+                }
+              } catch (e) {
+                // Notifications not available
+              }
+            }
+            
             resolve();
           }
         }, speed);
@@ -505,7 +536,8 @@ export function ChatInterface() {
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Only send on Enter if the setting is enabled
+    if (e.key === 'Enter' && !e.shiftKey && userSettings.sendOnEnter) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -798,7 +830,7 @@ export function ChatInterface() {
           
           <div className="relative">
             <div className="flex items-end gap-1.5 md:gap-2 bg-card border border-border rounded-xl p-2 shadow-card-custom">
-              {settings.enable_file_uploads && <FileAttachment onFileSelect={handleFileSelect} />}
+              {appSettings.enable_file_uploads && <FileAttachment onFileSelect={handleFileSelect} />}
 
               <Button
                 variant="ghost"
@@ -839,7 +871,7 @@ export function ChatInterface() {
               />
               
               <div className="flex items-center gap-1 flex-shrink-0">
-                {settings.enable_voice_input && (
+                {appSettings.enable_voice_input && (
                   <VoiceInput 
                     onTranscript={handleVoiceTranscript}
                     onComplete={handleVoiceComplete}
