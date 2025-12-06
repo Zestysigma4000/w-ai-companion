@@ -18,11 +18,6 @@ export interface AppSettings {
   auto_cleanup_days: number;
   enable_file_uploads: boolean;
   enable_voice_input: boolean;
-  session_timeout_minutes: number;
-  max_conversations_per_user: number;
-  enable_markdown: boolean;
-  enable_code_highlighting: boolean;
-  enable_analytics: boolean;
   enable_email_notifications: boolean;
   backup_frequency_hours: number;
   theme_mode: string;
@@ -35,7 +30,7 @@ const defaultSettings: AppSettings = {
   max_message_length: 10000,
   max_file_size_mb: 20,
   max_files_per_message: 10,
-  default_model: "google/gemini-2.0-flash-exp:free",
+  default_model: "deepseek-v3.1:671b-cloud",
   maintenance_mode: false,
   allow_new_signups: true,
   app_name: "AI Assistant",
@@ -44,14 +39,9 @@ const defaultSettings: AppSettings = {
   auto_cleanup_days: 30,
   enable_file_uploads: true,
   enable_voice_input: true,
-  session_timeout_minutes: 60,
-  max_conversations_per_user: 100,
-  enable_markdown: true,
-  enable_code_highlighting: true,
-  enable_analytics: true,
   enable_email_notifications: false,
   backup_frequency_hours: 24,
-  theme_mode: "system",
+  theme_mode: "dark",
 };
 
 export function useAppSettings() {

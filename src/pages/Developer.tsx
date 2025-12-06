@@ -28,20 +28,9 @@ interface AppSettings {
   auto_cleanup_days: number;
   enable_file_uploads: boolean;
   enable_voice_input: boolean;
-  session_timeout_minutes: number;
-  max_conversations_per_user: number;
-  enable_markdown: boolean;
-  enable_code_highlighting: boolean;
-  enable_analytics: boolean;
   enable_email_notifications: boolean;
   backup_frequency_hours: number;
   theme_mode: string;
-  enable_image_generation: boolean;
-  enable_web_search: boolean;
-  max_context_length: number;
-  ai_temperature: number;
-  enable_streaming: boolean;
-  enable_auto_save: boolean;
 }
 
 interface UserStats {
@@ -78,7 +67,7 @@ const Developer = () => {
     max_message_length: 10000,
     max_file_size_mb: 20,
     max_files_per_message: 10,
-    default_model: "google/gemini-2.0-flash-exp:free",
+    default_model: "deepseek-v3.1:671b-cloud",
     maintenance_mode: false,
     allow_new_signups: true,
     app_name: "AI Assistant",
@@ -87,20 +76,9 @@ const Developer = () => {
     auto_cleanup_days: 30,
     enable_file_uploads: true,
     enable_voice_input: true,
-    session_timeout_minutes: 60,
-    max_conversations_per_user: 100,
-    enable_markdown: true,
-    enable_code_highlighting: true,
-    enable_analytics: true,
     enable_email_notifications: false,
     backup_frequency_hours: 24,
-    theme_mode: "system",
-    enable_image_generation: true,
-    enable_web_search: false,
-    max_context_length: 4096,
-    ai_temperature: 0.7,
-    enable_streaming: true,
-    enable_auto_save: true,
+    theme_mode: "dark",
   });
   const [stats, setStats] = useState<UserStats>({
     totalUsers: 0,
@@ -122,12 +100,7 @@ const Developer = () => {
     rateLimiting: false,
     messageLimits: false,
     maintenance: false,
-    sessionLimits: false,
-    uiSettings: false,
-    analyticsNotifications: false,
     backup: false,
-    aiAdvanced: false,
-    performance: false,
   });
 
   useEffect(() => {
@@ -352,17 +325,33 @@ const Developer = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      for (const [key, value] of Object.entries(settings)) {
+      // Only save settings that exist in the database
+      const existingSettings = [
+        'rate_limit_enabled', 'rate_limit_per_hour', 'rate_limit_per_minute',
+        'max_message_length', 'max_file_size_mb', 'max_files_per_message',
+        'default_model', 'maintenance_mode', 'allow_new_signups',
+        'app_name', 'welcome_message', 'logging_level', 'auto_cleanup_days',
+        'enable_file_uploads', 'enable_voice_input', 'theme_mode',
+        'enable_email_notifications', 'backup_frequency_hours'
+      ];
+      
+      for (const key of existingSettings) {
+        const value = settings[key as keyof AppSettings];
+        if (value === undefined) continue;
+        
         const { error } = await supabase
           .from('app_settings')
-          .upsert({
-            key,
+          .update({
             value,
             updated_by: user?.id,
             updated_at: new Date().toISOString(),
-          });
+          })
+          .eq('key', key);
 
-        if (error) throw error;
+        if (error) {
+          console.error(`Error updating ${key}:`, error);
+          throw error;
+        }
       }
 
       toast.success("Settings saved successfully!");
@@ -660,21 +649,6 @@ const Developer = () => {
                         />
                       </div>
 
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="enable-auto-save">Auto-Save Conversations</Label>
-                          <p className="text-sm text-muted-foreground">
-                            Automatically save user conversations
-                          </p>
-                        </div>
-                        <Switch
-                          id="enable-auto-save"
-                          checked={settings.enable_auto_save}
-                          onCheckedChange={(checked) =>
-                            setSettings({ ...settings, enable_auto_save: checked })
-                          }
-                        />
-                      </div>
                     </CardContent>
                   </CollapsibleContent>
                 </Card>
@@ -714,9 +688,8 @@ const Developer = () => {
                             })
                           }
                         >
-                          <option value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash (Fast)</option>
-                          <option value="deepseek/deepseek-r1:free">DeepSeek R1 (Reasoning)</option>
-                          <option value="qwen/qwen-2.5-72b-instruct:free">Qwen 2.5 (Balanced)</option>
+                          <option value="deepseek-v3.1:671b-cloud">DeepSeek V3.1 (Default)</option>
+                          <option value="qwen3-vl:235b-cloud">Qwen3 VL (Vision)</option>
                         </select>
                         <p className="text-xs text-muted-foreground">
                           This model will be used by default for new conversations
@@ -780,53 +753,6 @@ const Developer = () => {
                         />
                       </div>
 
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="enable-image-gen">Image Generation</Label>
-                          <p className="text-sm text-muted-foreground">
-                            Enable AI image generation capabilities
-                          </p>
-                        </div>
-                        <Switch
-                          id="enable-image-gen"
-                          checked={settings.enable_image_generation}
-                          onCheckedChange={(checked) =>
-                            setSettings({ ...settings, enable_image_generation: checked })
-                          }
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="enable-web-search">Web Search</Label>
-                          <p className="text-sm text-muted-foreground">
-                            Allow AI to search the web for information
-                          </p>
-                        </div>
-                        <Switch
-                          id="enable-web-search"
-                          checked={settings.enable_web_search}
-                          onCheckedChange={(checked) =>
-                            setSettings({ ...settings, enable_web_search: checked })
-                          }
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="enable-streaming">Response Streaming</Label>
-                          <p className="text-sm text-muted-foreground">
-                            Stream AI responses in real-time
-                          </p>
-                        </div>
-                        <Switch
-                          id="enable-streaming"
-                          checked={settings.enable_streaming}
-                          onCheckedChange={(checked) =>
-                            setSettings({ ...settings, enable_streaming: checked })
-                          }
-                        />
-                      </div>
                     </CardContent>
                   </CollapsibleContent>
                 </Card>
@@ -1036,243 +962,27 @@ const Developer = () => {
                 </Card>
               </Collapsible>
 
-              {/* Session & User Limits */}
+              {/* Notifications */}
               <Collapsible 
-                open={openSections.sessionLimits}
-                onOpenChange={(open) => setOpenSections({...openSections, sessionLimits: open})}
+                open={openSections.backup}
+                onOpenChange={(open) => setOpenSections({...openSections, backup: open})}
               >
                 <Card>
                   <CollapsibleTrigger className="w-full">
                     <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
                       <div className="flex items-center justify-between">
                         <div className="text-left">
-                          <CardTitle>Session & User Limits</CardTitle>
+                          <CardTitle>Notifications & Backup</CardTitle>
                           <CardDescription>
-                            Configure session timeouts and user-specific limits
+                            Configure notification and backup settings
                           </CardDescription>
                         </div>
-                        <ChevronDown className={`h-5 w-5 transition-transform ${openSections.sessionLimits ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`h-5 w-5 transition-transform ${openSections.backup ? 'rotate-180' : ''}`} />
                       </div>
                     </CardHeader>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <CardContent className="space-y-6 pt-0">
-                      <div className="space-y-2">
-                        <Label htmlFor="session-timeout">Session Timeout (minutes)</Label>
-                        <Input
-                          id="session-timeout"
-                          type="number"
-                          value={settings.session_timeout_minutes}
-                          onChange={(e) =>
-                            setSettings({
-                              ...settings,
-                              session_timeout_minutes: parseInt(e.target.value),
-                            })
-                          }
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Automatically sign out inactive users after this duration
-                        </p>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="max-conversations">Max Conversations Per User</Label>
-                        <Input
-                          id="max-conversations"
-                          type="number"
-                          value={settings.max_conversations_per_user}
-                          onChange={(e) =>
-                            setSettings({
-                              ...settings,
-                              max_conversations_per_user: parseInt(e.target.value),
-                            })
-                          }
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Maximum number of conversations each user can create (0 = unlimited)
-                        </p>
-                      </div>
-                    </CardContent>
-                  </CollapsibleContent>
-                </Card>
-              </Collapsible>
-
-              {/* UI & Display Settings */}
-              <Collapsible 
-                open={openSections.uiSettings}
-                onOpenChange={(open) => setOpenSections({...openSections, uiSettings: open})}
-              >
-                <Card>
-                  <CollapsibleTrigger className="w-full">
-                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="text-left">
-                          <CardTitle>UI & Display Settings</CardTitle>
-                          <CardDescription>
-                            Configure user interface and rendering options
-                          </CardDescription>
-                        </div>
-                        <ChevronDown className={`h-5 w-5 transition-transform ${openSections.uiSettings ? 'rotate-180' : ''}`} />
-                      </div>
-                    </CardHeader>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <CardContent className="space-y-6 pt-0">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="enable-markdown">Markdown Rendering</Label>
-                          <p className="text-sm text-muted-foreground">
-                            Enable markdown formatting in messages
-                          </p>
-                        </div>
-                        <Switch
-                          id="enable-markdown"
-                          checked={settings.enable_markdown}
-                          onCheckedChange={(checked) =>
-                            setSettings({ ...settings, enable_markdown: checked })
-                          }
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="enable-code">Code Highlighting</Label>
-                          <p className="text-sm text-muted-foreground">
-                            Enable syntax highlighting for code blocks
-                          </p>
-                        </div>
-                        <Switch
-                          id="enable-code"
-                          checked={settings.enable_code_highlighting}
-                          onCheckedChange={(checked) =>
-                            setSettings({ ...settings, enable_code_highlighting: checked })
-                          }
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="theme-mode">Default Theme</Label>
-                        <select
-                          id="theme-mode"
-                          className="w-full h-10 px-3 rounded-md border border-input bg-background"
-                          value={settings.theme_mode}
-                          onChange={(e) =>
-                            setSettings({
-                              ...settings,
-                              theme_mode: e.target.value,
-                            })
-                          }
-                        >
-                          <option value="dark">Dark</option>
-                          <option value="system">System (Auto)</option>
-                        </select>
-                      </div>
-                    </CardContent>
-                  </CollapsibleContent>
-                </Card>
-              </Collapsible>
-
-              {/* AI Advanced Settings */}
-              <Collapsible 
-                open={openSections.aiAdvanced}
-                onOpenChange={(open) => setOpenSections({...openSections, aiAdvanced: open})}
-              >
-                <Card>
-                  <CollapsibleTrigger className="w-full">
-                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="text-left">
-                          <CardTitle>AI Advanced Settings</CardTitle>
-                          <CardDescription>
-                            Fine-tune AI behavior and parameters
-                          </CardDescription>
-                        </div>
-                        <ChevronDown className={`h-5 w-5 transition-transform ${openSections.aiAdvanced ? 'rotate-180' : ''}`} />
-                      </div>
-                    </CardHeader>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <CardContent className="space-y-6 pt-0">
-                      <div className="space-y-2">
-                        <Label htmlFor="max-context">Max Context Length (tokens)</Label>
-                        <Input
-                          id="max-context"
-                          type="number"
-                          value={settings.max_context_length}
-                          onChange={(e) =>
-                            setSettings({
-                              ...settings,
-                              max_context_length: parseInt(e.target.value),
-                            })
-                          }
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Maximum conversation context (higher = more memory, slower responses)
-                        </p>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="ai-temp">AI Temperature ({settings.ai_temperature})</Label>
-                        <Input
-                          id="ai-temp"
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          max="2"
-                          value={settings.ai_temperature}
-                          onChange={(e) =>
-                            setSettings({
-                              ...settings,
-                              ai_temperature: parseFloat(e.target.value),
-                            })
-                          }
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Controls randomness: lower = focused, higher = creative
-                        </p>
-                      </div>
-                    </CardContent>
-                  </CollapsibleContent>
-                </Card>
-              </Collapsible>
-
-              {/* Analytics & Notifications */}
-              <Collapsible 
-                open={openSections.analyticsNotifications}
-                onOpenChange={(open) => setOpenSections({...openSections, analyticsNotifications: open})}
-              >
-                <Card>
-                  <CollapsibleTrigger className="w-full">
-                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="text-left">
-                          <CardTitle>Analytics & Notifications</CardTitle>
-                          <CardDescription>
-                            Configure tracking and notification settings
-                          </CardDescription>
-                        </div>
-                        <ChevronDown className={`h-5 w-5 transition-transform ${openSections.analyticsNotifications ? 'rotate-180' : ''}`} />
-                      </div>
-                    </CardHeader>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <CardContent className="space-y-6 pt-0">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="enable-analytics">Analytics Tracking</Label>
-                          <p className="text-sm text-muted-foreground">
-                            Track usage statistics and user behavior
-                          </p>
-                        </div>
-                        <Switch
-                          id="enable-analytics"
-                          checked={settings.enable_analytics}
-                          onCheckedChange={(checked) =>
-                            setSettings({ ...settings, enable_analytics: checked })
-                          }
-                        />
-                      </div>
-
                       <div className="flex items-center justify-between">
                         <div className="space-y-0.5">
                           <Label htmlFor="enable-notifications">Email Notifications</Label>
@@ -1288,32 +998,7 @@ const Developer = () => {
                           }
                         />
                       </div>
-                    </CardContent>
-                  </CollapsibleContent>
-                </Card>
-              </Collapsible>
 
-              {/* Backup & Data Management */}
-              <Collapsible 
-                open={openSections.backup}
-                onOpenChange={(open) => setOpenSections({...openSections, backup: open})}
-              >
-                <Card>
-                  <CollapsibleTrigger className="w-full">
-                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="text-left">
-                          <CardTitle>Backup & Data Management</CardTitle>
-                          <CardDescription>
-                            Configure automatic backup frequency
-                          </CardDescription>
-                        </div>
-                        <ChevronDown className={`h-5 w-5 transition-transform ${openSections.backup ? 'rotate-180' : ''}`} />
-                      </div>
-                    </CardHeader>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <CardContent className="space-y-6 pt-0">
                       <div className="space-y-2">
                         <Label htmlFor="backup-frequency">Backup Frequency (hours)</Label>
                         <Input
@@ -1330,15 +1015,6 @@ const Developer = () => {
                         <p className="text-xs text-muted-foreground">
                           Automatically backup database every X hours (0 = disabled)
                         </p>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button variant="outline" className="flex-1">
-                          Create Backup Now
-                        </Button>
-                        <Button variant="outline" className="flex-1">
-                          Export All Data
-                        </Button>
                       </div>
                     </CardContent>
                   </CollapsibleContent>
