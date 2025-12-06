@@ -57,7 +57,7 @@ export function FileAttachment({ onFileSelect }: FileAttachmentProps) {
         variant="ghost" 
         size="sm"
         onClick={handleClick}
-        className="text-muted-foreground hover:text-foreground"
+        className="text-muted-foreground hover:text-foreground h-10 w-10 p-0 flex-shrink-0"
       >
         <Paperclip className="w-4 h-4" />
       </Button>

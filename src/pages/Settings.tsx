@@ -30,29 +30,29 @@ const Settings = () => {
   };
 
   return (
-    <div className="h-screen overflow-y-auto bg-background">
-      <div className="max-w-4xl mx-auto p-4 md:p-6 pb-20">
+    <div className="h-[100dvh] overflow-y-auto bg-background safe-area-inset">
+      <div className="max-w-4xl mx-auto p-4 md:p-6 pb-24">
         <div className="mb-6">
           <Button 
             variant="ghost" 
             onClick={() => navigate("/")}
-            className="mb-4"
+            className="mb-4 min-h-[44px]"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Chat
           </Button>
-          <h1 className="text-3xl font-bold gradient-text">Settings</h1>
-          <p className="text-muted-foreground mt-2">
+          <h1 className="text-2xl md:text-3xl font-bold gradient-text">Settings</h1>
+          <p className="text-muted-foreground mt-2 text-sm md:text-base">
             Customize your W ai experience
           </p>
         </div>
 
         <Tabs defaultValue="general" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
-            <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="appearance">Appearance</TabsTrigger>
-            <TabsTrigger value="privacy">Privacy</TabsTrigger>
-            <TabsTrigger value="advanced">Advanced</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
+            <TabsTrigger value="general" className="text-xs md:text-sm py-2.5">General</TabsTrigger>
+            <TabsTrigger value="appearance" className="text-xs md:text-sm py-2.5">Appearance</TabsTrigger>
+            <TabsTrigger value="privacy" className="text-xs md:text-sm py-2.5">Privacy</TabsTrigger>
+            <TabsTrigger value="advanced" className="text-xs md:text-sm py-2.5">Advanced</TabsTrigger>
           </TabsList>
 
           <TabsContent value="general" className="space-y-4">

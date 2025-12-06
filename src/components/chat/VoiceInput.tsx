@@ -91,7 +91,7 @@ export function VoiceInput({ onTranscript, onComplete }: VoiceInputProps) {
       variant="ghost" 
       size="sm"
       onClick={handleClick}
-      className={`text-muted-foreground hover:text-foreground ${isRecording ? 'text-red-500 hover:text-red-600 animate-pulse' : ''}`}
+      className={`text-muted-foreground hover:text-foreground h-10 w-10 p-0 flex-shrink-0 ${isRecording ? 'text-red-500 hover:text-red-600 animate-pulse' : ''}`}
       title={isRecording ? "Stop recording" : "Start voice input"}
     >
       {isRecording ? (
