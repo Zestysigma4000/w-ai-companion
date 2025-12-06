@@ -26,16 +26,16 @@ export function AppLayout() {
   return (
     <SidebarProvider>
       <ConversationsProvider>
-        <div className="min-h-screen w-full flex bg-background">
+        <div className="h-[100dvh] w-full flex bg-background overflow-hidden">
           {/* Main Header */}
-          <div className="fixed top-0 left-0 right-0 z-50 h-14 bg-background/80 backdrop-blur-lg border-b border-border flex items-center px-3 md:px-4 gap-2 md:gap-3">
+          <div className="fixed top-0 left-0 right-0 z-50 h-14 bg-background/80 backdrop-blur-lg border-b border-border flex items-center px-3 md:px-4 gap-2 md:gap-3 safe-area-top">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="hover:bg-muted"
+              className="hover:bg-muted min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
-              <Menu className="h-4 w-4" />
+              <Menu className="h-5 w-5" />
             </Button>
             
             <div className="flex items-center gap-2">
@@ -53,10 +53,10 @@ export function AppLayout() {
                 variant="ghost"
                 size="sm"
                 onClick={handleSignOut}
-                className="hover:bg-muted"
+                className="hover:bg-muted min-h-[44px] min-w-[44px] flex items-center justify-center"
                 title="Sign out"
               >
-                <LogOut className="h-4 w-4" />
+                <LogOut className="h-5 w-5" />
               </Button>
             </div>
           </div>
@@ -66,7 +66,8 @@ export function AppLayout() {
             <>
               {/* Mobile overlay backdrop */}
               <div 
-                className="fixed inset-0 bg-black/50 z-40 md:hidden pt-14"
+                className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                style={{ top: '3.5rem' }}
                 onClick={() => setSidebarOpen(false)}
               />
               {/* Sidebar - fixed on mobile, static on desktop */}
@@ -75,7 +76,7 @@ export function AppLayout() {
           )}
           
           {/* Main Content Area */}
-          <main className="flex-1 pt-14 transition-all duration-300 min-w-0">
+          <main className="flex-1 pt-14 flex flex-col min-w-0 h-full overflow-hidden">
             <ChatInterface />
           </main>
         </div>

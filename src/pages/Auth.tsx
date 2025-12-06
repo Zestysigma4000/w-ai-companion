@@ -141,17 +141,20 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Welcome to W AI</CardTitle>
-          <CardDescription>Sign in or create an account to continue</CardDescription>
+    <div className="min-h-[100dvh] flex items-center justify-center bg-background p-4 safe-area-inset">
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader className="space-y-1 text-center">
+          <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-primary rounded-xl flex items-center justify-center glow-primary mx-auto mb-2">
+            <span className="text-white font-bold text-xl md:text-2xl">W</span>
+          </div>
+          <CardTitle className="text-xl md:text-2xl">Welcome to W AI</CardTitle>
+          <CardDescription className="text-sm md:text-base">Sign in or create an account to continue</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="signin">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="signin" className="text-sm md:text-base">Sign In</TabsTrigger>
+              <TabsTrigger value="signup" className="text-sm md:text-base">Sign Up</TabsTrigger>
             </TabsList>
             
             <TabsContent value="signin">
@@ -165,6 +168,7 @@ const Auth = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    className="h-11"
                   />
                 </div>
                 <div className="space-y-2">
@@ -175,9 +179,10 @@ const Auth = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    className="h-11"
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="w-full h-11 bg-gradient-primary hover:opacity-90 text-white" disabled={isLoading}>
                   {isLoading ? "Signing in..." : "Sign In"}
                 </Button>
               </form>
@@ -194,6 +199,7 @@ const Auth = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    className="h-11"
                   />
                 </div>
                 <div className="space-y-2">
@@ -205,9 +211,10 @@ const Auth = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     minLength={6}
+                    className="h-11"
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="w-full h-11 bg-gradient-primary hover:opacity-90 text-white" disabled={isLoading}>
                   {isLoading ? "Creating account..." : "Sign Up"}
                 </Button>
               </form>

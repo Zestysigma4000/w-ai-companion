@@ -581,7 +581,7 @@ export function ChatInterface() {
 
   return (
     <div 
-      className="flex flex-col h-full max-h-screen"
+      className="flex flex-col h-full overflow-hidden relative"
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -590,16 +590,16 @@ export function ChatInterface() {
       {/* Drag overlay */}
       {isDragging && (
         <div className="absolute inset-0 bg-primary/10 backdrop-blur-sm z-50 flex items-center justify-center border-4 border-dashed border-primary">
-          <div className="text-center">
-            <File className="w-16 h-16 text-primary mx-auto mb-4" />
-            <p className="text-2xl font-semibold text-primary">Drop files here to upload</p>
-            <p className="text-muted-foreground mt-2">Up to 10 files, 20MB each</p>
+          <div className="text-center p-4">
+            <File className="w-12 h-12 md:w-16 md:h-16 text-primary mx-auto mb-4" />
+            <p className="text-lg md:text-2xl font-semibold text-primary">Drop files here to upload</p>
+            <p className="text-muted-foreground mt-2 text-sm md:text-base">Up to 10 files, 20MB each</p>
           </div>
         </div>
       )}
       
       {/* Messages Area */}
-      <ScrollArea className="flex-1 p-3 md:p-6">
+      <ScrollArea className="flex-1 min-h-0 p-3 md:p-6">
         <div className="max-w-4xl mx-auto space-y-4 md:space-y-6">
           {/* Load More Button */}
           {hasMore && currentConversationId && (
@@ -690,8 +690,8 @@ export function ChatInterface() {
       </ScrollArea>
 
       {/* Input Area */}
-      <div className="border-t border-border bg-background/80 backdrop-blur-lg">
-        <div className="max-w-4xl mx-auto p-3 md:p-6">
+      <div className="flex-shrink-0 border-t border-border bg-background/80 backdrop-blur-lg safe-area-bottom">
+        <div className="max-w-4xl mx-auto p-3 md:p-4">
           {/* Upload progress indicator */}
           {uploadingFiles && (
             <div className="mb-3 space-y-2">
@@ -767,7 +767,7 @@ export function ChatInterface() {
           )}
           
           <div className="relative">
-            <div className="flex items-end gap-2 md:gap-3 bg-card border border-border rounded-xl p-2 shadow-card-custom">
+            <div className="flex items-end gap-1.5 md:gap-2 bg-card border border-border rounded-xl p-2 shadow-card-custom">
               {settings.enable_file_uploads && <FileAttachment onFileSelect={handleFileSelect} />}
 
               <Button
@@ -776,7 +776,7 @@ export function ChatInterface() {
                 onClick={() => setForceWebSearch(!forceWebSearch)}
                 aria-pressed={forceWebSearch}
                 title="Force Web Search"
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground h-10 w-10 p-0 flex-shrink-0"
               >
                 <Search className="w-4 h-4" />
               </Button>
@@ -787,7 +787,7 @@ export function ChatInterface() {
                 onClick={() => setDeepThinkEnabled(!deepThinkEnabled)}
                 aria-pressed={deepThinkEnabled}
                 title="Deep Think"
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground h-10 w-10 p-0 flex-shrink-0"
               >
                 <Brain className="w-4 h-4" />
               </Button>
@@ -797,12 +797,12 @@ export function ChatInterface() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Ask W ai anything... I have full capabilities!"
-                className="flex-1 min-h-[40px] max-h-32 resize-none border-0 bg-transparent p-2 focus-visible:ring-0 placeholder:text-muted-foreground text-sm md:text-base"
+                placeholder="Ask W ai anything..."
+                className="flex-1 min-h-[40px] max-h-32 resize-none border-0 bg-transparent p-2 focus-visible:ring-0 placeholder:text-muted-foreground text-base"
                 rows={1}
               />
               
-              <div className="flex items-center gap-1 md:gap-2">
+              <div className="flex items-center gap-1 flex-shrink-0">
                 {settings.enable_voice_input && (
                   <VoiceInput 
                     onTranscript={handleVoiceTranscript}
@@ -813,7 +813,7 @@ export function ChatInterface() {
                 <Button 
                   onClick={handleSendMessage}
                   disabled={!inputValue.trim() || isLoading || uploadingFiles}
-                  className="bg-gradient-primary hover:opacity-90 text-white glow-primary transition-all duration-300"
+                  className="bg-gradient-primary hover:opacity-90 text-white glow-primary transition-all duration-300 h-10 w-10 p-0"
                   size="sm"
                 >
                   <Send className="w-4 h-4" />
@@ -822,8 +822,8 @@ export function ChatInterface() {
             </div>
           </div>
           
-          <div className="mt-2 text-xs text-muted-foreground text-center">
-            W ai can make mistakes. Verify important information and code outputs.
+          <div className="mt-2 text-xs text-muted-foreground text-center hidden sm:block">
+            W ai can make mistakes. Verify important information.
           </div>
         </div>
       </div>
