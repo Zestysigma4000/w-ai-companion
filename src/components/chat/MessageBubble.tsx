@@ -287,9 +287,33 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
           </div>
         )}
 
-        {/* Message Actions */}
+        {/* Model Indicator - Always visible for assistant messages */}
+        {!isUser && !message.isTyping && message.modelUsed && (
+          <div 
+            className={`flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-xs w-fit ${
+              message.isVisionModel 
+                ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' 
+                : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+            }`}
+            title={message.modelUsed}
+          >
+            {message.isVisionModel ? (
+              <>
+                <Eye className="w-3 h-3" />
+                <span>Vision</span>
+              </>
+            ) : (
+              <>
+                <Type className="w-3 h-3" />
+                <span>Text</span>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Message Actions - Show on hover */}
         {!message.isTyping && (
-          <div className={`flex items-center gap-1 mt-2 opacity-0 md:group-hover:opacity-100 transition-opacity ${isUser ? 'flex-row-reverse' : ''}`}>
+          <div className={`flex items-center gap-1 mt-1 opacity-0 md:group-hover:opacity-100 transition-opacity ${isUser ? 'flex-row-reverse' : ''}`}>
             <Button
               variant="ghost"
               size="sm"
@@ -325,30 +349,6 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
                 minute: '2-digit' 
               })}
             </span>
-            
-            {/* Model Indicator - Only show for assistant messages */}
-            {!isUser && message.modelUsed && (
-              <div 
-                className={`flex items-center gap-1 ml-2 px-2 py-0.5 rounded-full text-xs ${
-                  message.isVisionModel 
-                    ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' 
-                    : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                }`}
-                title={message.modelUsed}
-              >
-                {message.isVisionModel ? (
-                  <>
-                    <Eye className="w-3 h-3" />
-                    <span className="hidden sm:inline">Vision</span>
-                  </>
-                ) : (
-                  <>
-                    <Type className="w-3 h-3" />
-                    <span className="hidden sm:inline">Text</span>
-                  </>
-                )}
-              </div>
-            )}
           </div>
         )}
       </div>

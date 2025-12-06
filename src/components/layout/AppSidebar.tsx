@@ -163,13 +163,13 @@ export function AppSidebar() {
                         : 'hover:bg-sidebar-accent'
                     }`}
                   >
-                    <span className="truncate flex-1 min-w-0 text-left text-sm" title={conversation.title}>
+                    <span className="truncate flex-1 min-w-0 text-left text-sm max-w-[160px]" title={conversation.title}>
                       {conversation.title}
                     </span>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 w-6 p-0 hover:bg-destructive/20 hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="h-6 w-6 p-0 hover:bg-destructive/20 hover:text-destructive shrink-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                       onClick={(e) => handleDeleteConversation(e, conversation.id)}
                     >
                       <Trash2 className="w-3 h-3" />
