@@ -765,29 +765,65 @@ export function ChatInterface() {
               })}
             </div>
           )}
+
+          {/* Active tools indicator */}
+          {(forceWebSearch || deepThinkEnabled) && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {forceWebSearch && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs text-primary">
+                  <Search className="w-3 h-3" />
+                  <span>Web Search enabled</span>
+                  <button 
+                    onClick={() => setForceWebSearch(false)}
+                    className="ml-1 hover:text-primary/70"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+              {deepThinkEnabled && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-xs text-purple-400">
+                  <Brain className="w-3 h-3" />
+                  <span>Deep Think enabled</span>
+                  <button 
+                    onClick={() => setDeepThinkEnabled(false)}
+                    className="ml-1 hover:text-purple-400/70"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           
           <div className="relative">
             <div className="flex items-end gap-1.5 md:gap-2 bg-card border border-border rounded-xl p-2 shadow-card-custom">
               {settings.enable_file_uploads && <FileAttachment onFileSelect={handleFileSelect} />}
 
               <Button
-                variant={forceWebSearch ? "default" : "ghost"}
+                variant="ghost"
                 size="sm"
-                onClick={() => setForceWebSearch(!forceWebSearch)}
-                aria-pressed={forceWebSearch}
-                title="Force Web Search"
-                className="text-muted-foreground hover:text-foreground h-10 w-10 p-0 flex-shrink-0"
+                onClick={() => setForceWebSearch(prev => !prev)}
+                title={forceWebSearch ? "Web Search enabled" : "Enable Web Search"}
+                className={`h-10 w-10 p-0 flex-shrink-0 transition-colors ${
+                  forceWebSearch 
+                    ? 'bg-primary/20 text-primary border border-primary/30' 
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
               >
                 <Search className="w-4 h-4" />
               </Button>
 
               <Button
-                variant={deepThinkEnabled ? "default" : "ghost"}
+                variant="ghost"
                 size="sm"
-                onClick={() => setDeepThinkEnabled(!deepThinkEnabled)}
-                aria-pressed={deepThinkEnabled}
-                title="Deep Think"
-                className="text-muted-foreground hover:text-foreground h-10 w-10 p-0 flex-shrink-0"
+                onClick={() => setDeepThinkEnabled(prev => !prev)}
+                title={deepThinkEnabled ? "Deep Think enabled" : "Enable Deep Think"}
+                className={`h-10 w-10 p-0 flex-shrink-0 transition-colors ${
+                  deepThinkEnabled 
+                    ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' 
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
               >
                 <Brain className="w-4 h-4" />
               </Button>
