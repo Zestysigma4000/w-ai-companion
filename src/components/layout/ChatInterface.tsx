@@ -227,7 +227,7 @@ export function ChatInterface() {
     
     // Track start time for minimum typing animation duration
     const startTime = Date.now();
-    const minTypingDuration = 800; // milliseconds
+    const minTypingDuration = 200; // milliseconds - faster response
 
     // Define the send operation
     const sendOperation = async () => {
@@ -437,54 +437,35 @@ export function ChatInterface() {
         await new Promise(resolve => setTimeout(resolve, remainingTime));
       }
 
-      // Animate content reveal
-      await new Promise<void>((resolve) => {
-        const speed = Math.max(8, Math.floor(1200 / Math.max(1, fullText.length)));
-        let i = 0;
-        const interval = setInterval(() => {
-          i = Math.min(i + 2, fullText.length);
-          setMessages(prev => prev.map(m =>
-            m.id === typingMessageId ? { ...m, content: fullText.slice(0, i) } : m
-          ));
-          if (i >= fullText.length) {
-            clearInterval(interval);
-            setMessages(prev => prev.map(m =>
-              m.id === typingMessageId ? { ...m, isTyping: false } : m
-            ));
-            
-            // Play notification sound if enabled
-            if (userSettings.soundEnabled) {
-              try {
-                const audio = new Audio('/notification.mp3');
-                audio.volume = 0.3;
-                audio.play().catch(() => {
-                  // Audio play failed, silently ignore (browser autoplay restrictions)
-                });
-              } catch (e) {
-                // Audio not available
-              }
-            }
-            
-            // Show browser notification if enabled and page is not focused
-            if (userSettings.notifications && document.hidden) {
-              try {
-                if (Notification.permission === 'granted') {
-                  new Notification('W AI', {
-                    body: 'AI has responded to your message',
-                    icon: '/pwa-192x192.png',
-                  });
-                } else if (Notification.permission !== 'denied') {
-                  Notification.requestPermission();
-                }
-              } catch (e) {
-                // Notifications not available
-              }
-            }
-            
-            resolve();
+      // Fast content reveal - show full response immediately
+      setMessages(prev => prev.map(m =>
+        m.id === typingMessageId ? { ...m, content: fullText, isTyping: false } : m
+      ));
+      
+      // Play notification sound if enabled
+      if (userSettings.soundEnabled) {
+        try {
+          const audio = new Audio('/notification.mp3');
+          audio.volume = 0.3;
+          audio.play().catch(() => {});
+        } catch (e) {}
+      }
+      
+      // Show browser notification if enabled and page is not focused
+      if (userSettings.notifications && document.hidden) {
+        try {
+          if (Notification.permission === 'granted') {
+            new Notification('W AI', {
+              body: 'AI has responded to your message',
+              icon: '/pwa-192x192.png',
+            });
+          } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission();
           }
-        }, speed);
-      });
+        } catch (e) {
+          // Notifications not available
+        }
+      }
       
       // Delay before clearing indicators to ensure user sees them
       await new Promise(resolve => setTimeout(resolve, 300));
