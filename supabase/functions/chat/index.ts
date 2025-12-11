@@ -382,19 +382,26 @@ serve(async (req) => {
 2. execute_code - Execute JavaScript/TypeScript code
 ${deepThinkEnabled ? '3. deep_think - Use enhanced reasoning for complex problems' : ''}
 
-When you need to use a tool, respond with EXACTLY this format:
+CRITICAL: To use a tool, you MUST output EXACTLY this XML format with NO variations:
 <tool_call>
-<tool_name>TOOL_NAME</tool_name>
-<parameters>
-{"param1": "value1", "param2": "value2"}
-</parameters>
+<tool_name>web_search</tool_name>
+<parameters>{"query": "your search query here"}</parameters>
 </tool_call>
 
-For web_search: {"query": "search query"}
-For execute_code: {"code": "print('Hello')", "language": "python"}
-For deep_think: {"problem": "problem description"}
+IMPORTANT FORMAT RULES:
+- Use <tool_call> and </tool_call> tags exactly (NOT </call>)
+- Put tool name directly inside <tool_name> tags
+- Put JSON parameters directly inside <parameters> tags
+- Only one tool call per block
+- Keep parameters on a single line as valid JSON
 
-You can use multiple tools in sequence. After receiving tool results, incorporate them naturally into your response.`;
+Example for web_search:
+<tool_call>
+<tool_name>web_search</tool_name>
+<parameters>{"query": "AI car driving costs 2024"}</parameters>
+</tool_call>
+
+After receiving tool results, incorporate them naturally into your response. Do NOT output the raw tool_call syntax to the user.`;
     
     const messages = [
       {
@@ -550,11 +557,14 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
     // Deep think is handled in the system prompt, not as a separate tool call
     
     while (iteration < maxIterations) {
-      // Check for tool calls in response
-      const toolCallMatch = assistantMessage.match(/<tool_call>\s*<tool_name>(.*?)<\/tool_name>\s*<parameters>(.*?)<\/parameters>\s*<\/tool_call>/s);
+      // Check for tool calls in response - more flexible regex to handle AI formatting variations
+      // Handles: </tool_call>, </call>, missing closing tags, extra whitespace
+      const toolCallMatch = assistantMessage.match(/<tool_call>[\s\S]*?<tool_name>([\w_]+)<\/tool_name>[\s\S]*?<parameters>([\s\S]*?)<\/parameters>[\s\S]*?<\/(?:tool_call|call)>/i);
       
       if (!toolCallMatch) {
-        // No tool calls, we're done
+        // No tool calls, we're done - clean up any malformed tool syntax
+        assistantMessage = assistantMessage.replace(/<tool_call>[\s\S]*?<\/(?:tool_call|call)>/gi, '').trim();
+        assistantMessage = assistantMessage.replace(/<tool_call>[\s\S]*$/gi, '').trim(); // Handle unclosed tags
         break;
       }
       
@@ -567,12 +577,13 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
       console.log(`🔧 Agent using tool: ${toolName}`);
       
       try {
-        parameters = JSON.parse(toolCallMatch[2].trim());
+        // Clean up the parameters - handle extra whitespace and newlines
+        const paramsStr = toolCallMatch[2].trim().replace(/\s+/g, ' ');
+        parameters = JSON.parse(paramsStr);
       } catch (e) {
-        assistantMessage = assistantMessage.replace(
-          toolCallMatch[0],
-          `[Tool Error: Invalid parameters format]`
-        );
+        console.error('Failed to parse tool parameters:', toolCallMatch[2]);
+        // Remove the malformed tool call and continue
+        assistantMessage = assistantMessage.replace(toolCallMatch[0], `I tried to search but encountered a formatting error. Let me answer based on my knowledge.`);
         continue;
       }
       
