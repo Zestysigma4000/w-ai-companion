@@ -225,9 +225,6 @@ export function ChatInterface() {
     setInputValue("");
     setIsLoading(true);
     
-    // Track start time for minimum typing animation duration
-    const startTime = Date.now();
-    const minTypingDuration = 200; // milliseconds - faster response
 
     // Define the send operation
     const sendOperation = async () => {
@@ -308,61 +305,54 @@ export function ChatInterface() {
 
       setMessages(prev => [...prev, userMessage]);
 
-      // Call the AI backend via Supabase function with retry
+      // Call the AI backend via streaming fetch
       console.log(`📤 Sending message with ${uploadedFiles.length} attachments (${uploadedFiles.filter(f => f.type.startsWith('image/')).length} images)`);
       
       setToolDetails(null);
       
-      const aiResult = await retryWithBackoff(
-        async () => supabase.functions.invoke('chat', {
-          body: {
-            message: currentInput,
-            conversationId: currentConversationId || null,
-            attachments: uploadedFiles,
-            deepThinkEnabled,
-            forceWebSearch,
-            typingPreview: typingPreview // Send typing preview for faster AI response
-          },
-          headers: {
-            Authorization: `Bearer ${session.access_token}`
-          }
-        }),
-        {
-          maxRetries: 2,
-          onRetry: (attempt, error) => {
-            console.log(`Retrying message send (attempt ${attempt})...`, error.message);
-            toast.info(`Retrying... (attempt ${attempt})`);
-          }
-        }
-      );
-
-      const { data, error } = aiResult;
-
-      console.log('📥 Response received from edge function');
-      console.log('📊 Tool details in response:', data?.toolDetails);
+      const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
       
-      // Set tool details immediately when received
-      if (data?.toolDetails) {
-        console.log('🔧 Setting tool details:', data.toolDetails);
-        setPersistentToolDetails(data.toolDetails);
-        setToolDetails(data.toolDetails);
-      }
+      const response = await fetch(CHAT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          message: currentInput,
+          conversationId: currentConversationId || null,
+          attachments: uploadedFiles,
+          deepThinkEnabled,
+          forceWebSearch,
+          typingPreview,
+          stream: true
+        }),
+      });
 
-      if (error) {
-        // Handle specific error codes
-        if (error.message?.includes('CONVERSATION_NOT_FOUND') || error.message?.includes('Conversation not found')) {
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Chat API error:', response.status, errorText);
+        
+        if (response.status === 429) {
+          toast.error('Rate limit exceeded', {
+            description: 'Please try again in a moment.'
+          });
+          throw new Error("Rate limit exceeded. Please try again in a moment.");
+        }
+        if (response.status === 402) {
+          toast.error('Payment required', {
+            description: 'Please add credits to your account.'
+          });
+          throw new Error("Payment required. Please add credits to your account.");
+        }
+        if (response.status === 404 && errorText.includes('CONVERSATION_NOT_FOUND')) {
           console.log('Conversation not found, clearing conversation ID...');
           setCurrentConversationId(null);
           await refreshConversations();
-          
-          // Remove the user message we just added since it failed
           setMessages(prev => prev.filter(m => m.id !== userMessage.id));
-          
           toast.warning('Conversation not found', {
             description: 'Please send your message again to start a new conversation.'
           });
-          
-          // Show error and let user retry
           const errorResponse: Message = {
             id: (Date.now() + 1).toString(),
             content: "That conversation no longer exists. Please send your message again to start a new conversation.",
@@ -374,49 +364,25 @@ export function ChatInterface() {
           return;
         }
         
-        if (error.message?.includes('429') || error.message?.includes('Rate limit')) {
-          toast.error('Rate limit exceeded', {
-            description: 'Please try again in a moment.'
-          });
-          throw new Error("Rate limit exceeded. Please try again in a moment.");
-        }
-        if (error.message?.includes('402') || error.message?.includes('Payment')) {
-          toast.error('Payment required', {
-            description: 'Please add credits to your account.'
-          });
-          throw new Error("Payment required. Please add credits to your account.");
-        }
-        
-        // Handle network/connection errors
-        if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
-          toast.error('Connection failed', {
-            description: 'Unable to reach the server. Please check your internet connection.'
-          });
-          throw new Error("Connection failed. Please check your internet connection.");
-        }
-        
-        // Generic backend error
         toast.error('Service unavailable', {
           description: 'The AI service is temporarily unavailable. Please try again.'
         });
-        throw error;
+        throw new Error(errorText || 'Failed to get response');
       }
 
-      // Update current conversation ID if the backend returned a different one
-      if (data.conversationId && data.conversationId !== currentConversationId) {
-        setCurrentConversationId(data.conversationId);
-        await refreshConversations();
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('Failed to get response stream');
       }
-      
-      // Reset force flags and typing preview
-      setForceWebSearch(false);
-      setTypingPreview("");
-      
-      // Typewriter effect: progressively reveal the AI response
+
+      const decoder = new TextDecoder();
+      let textBuffer = '';
+      let assistantContent = '';
+      let metadata: any = null;
       const typingMessageId = (Date.now() + 1).toString();
-      const fullText: string = data.response || '';
 
-      // Add a placeholder assistant message that will be updated
+      // Add placeholder assistant message
       setMessages(prev => [
         ...prev,
         {
@@ -425,22 +391,98 @@ export function ChatInterface() {
           role: 'assistant',
           timestamp: new Date(),
           isTyping: true,
-          modelUsed: data.modelUsed,
-          isVisionModel: data.isVisionModel,
         },
       ]);
 
-      // Ensure minimum typing animation duration
-      const elapsedTime = Date.now() - startTime;
-      const remainingTime = Math.max(0, minTypingDuration - elapsedTime);
-      if (remainingTime > 0) {
-        await new Promise(resolve => setTimeout(resolve, remainingTime));
+      // Process the stream
+      let streamDone = false;
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        textBuffer += decoder.decode(value, { stream: true });
+
+        // Process line-by-line
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith('\r')) line = line.slice(0, -1);
+          if (line.startsWith(':') || line.trim() === '') continue;
+          if (!line.startsWith('data: ')) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') {
+            streamDone = true;
+            break;
+          }
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            
+            // Handle metadata
+            if (parsed.type === 'metadata') {
+              metadata = parsed;
+              if (parsed.toolDetails) {
+                setPersistentToolDetails(parsed.toolDetails);
+                setToolDetails(parsed.toolDetails);
+              }
+              // Update conversation ID if new
+              if (parsed.conversationId && parsed.conversationId !== currentConversationId) {
+                setCurrentConversationId(parsed.conversationId);
+                refreshConversations();
+              }
+              // Update message with model info
+              setMessages(prev => prev.map(m =>
+                m.id === typingMessageId ? { ...m, modelUsed: parsed.modelUsed, isVisionModel: parsed.isVisionModel } : m
+              ));
+            }
+            // Handle content chunks
+            else if (parsed.type === 'content') {
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                assistantContent += content;
+                setMessages(prev => prev.map(m =>
+                  m.id === typingMessageId ? { ...m, content: assistantContent } : m
+                ));
+              }
+            }
+          } catch {
+            // Incomplete JSON, put back and wait for more data
+            textBuffer = line + '\n' + textBuffer;
+            break;
+          }
+        }
       }
 
-      // Fast content reveal - show full response immediately
+      // Final flush
+      if (textBuffer.trim()) {
+        for (let raw of textBuffer.split('\n')) {
+          if (!raw) continue;
+          if (raw.endsWith('\r')) raw = raw.slice(0, -1);
+          if (raw.startsWith(':') || raw.trim() === '') continue;
+          if (!raw.startsWith('data: ')) continue;
+          const jsonStr = raw.slice(6).trim();
+          if (jsonStr === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            if (parsed.type === 'content') {
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) assistantContent += content;
+            }
+          } catch { /* ignore partial leftovers */ }
+        }
+      }
+
+      // Mark typing as complete
       setMessages(prev => prev.map(m =>
-        m.id === typingMessageId ? { ...m, content: fullText, isTyping: false } : m
+        m.id === typingMessageId ? { ...m, content: assistantContent, isTyping: false } : m
       ));
+      
+      // Reset force flags and typing preview
+      setForceWebSearch(false);
+      setTypingPreview("");
       
       // Play notification sound if enabled
       if (userSettings.soundEnabled) {
@@ -476,14 +518,6 @@ export function ChatInterface() {
       await sendOperation();
     } catch (error) {
       console.error('Error getting AI response:', error);
-      
-      // Ensure minimum typing animation duration even for errors
-      const elapsedTime = Date.now() - startTime;
-      const remainingTime = Math.max(0, minTypingDuration - elapsedTime);
-      
-      if (remainingTime > 0) {
-        await new Promise(resolve => setTimeout(resolve, remainingTime));
-      }
       
       let errorMessage = "I'm experiencing technical difficulties. Please try again in a moment.";
       
