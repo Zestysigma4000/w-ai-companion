@@ -510,8 +510,11 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
       severity: 'info'
     })
     
-    // Call Ollama Cloud API using OpenAI-compatible endpoint
-    const ollamaResponse = await fetch('https://ollama.com/v1/chat/completions', {
+    // Check if client wants streaming
+    const wantsStreaming = body.stream !== false;
+    
+    // First call - non-streaming to check for tool calls
+    const initialResponse = await fetch('https://ollama.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -526,14 +529,14 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
       }),
     })
 
-    if (!ollamaResponse.ok) {
-      const errorText = await ollamaResponse.text()
-      console.error('Ollama API error:', ollamaResponse.status, errorText)
+    if (!initialResponse.ok) {
+      const errorText = await initialResponse.text()
+      console.error('Ollama API error:', initialResponse.status, errorText)
       throw new Error('Failed to get response from AI. Please try again.')
     }
 
-    const ollamaData = await ollamaResponse.json()
-    let assistantMessage = ollamaData.choices[0].message.content
+    const initialData = await initialResponse.json()
+    let assistantMessage = initialData.choices[0].message.content
 
     // Agent loop - process tool calls
     let maxIterations = 5;
@@ -824,6 +827,59 @@ Be helpful, autonomous, and proactive in using your tools when needed. But above
 
     if (assistantMessageError) throw assistantMessageError
 
+    // Stream the response if requested
+    if (wantsStreaming) {
+      // Create a readable stream that sends the message in chunks
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          // Send metadata first
+          const metadata = {
+            conversationId: conversation.id,
+            toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined,
+            toolDetails: firstToolDetails,
+            modelUsed: modelToUse,
+            isVisionModel: hasImages
+          };
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'metadata', ...metadata })}\n\n`));
+          
+          // Stream the content in chunks (simulate word-by-word for faster perceived response)
+          const words = assistantMessage.split(/(\s+)/);
+          let buffer = '';
+          
+          for (let i = 0; i < words.length; i++) {
+            buffer += words[i];
+            
+            // Send every few words or at punctuation for natural flow
+            if (buffer.length >= 20 || /[.!?,;:]$/.test(buffer) || i === words.length - 1) {
+              const chunk = {
+                type: 'content',
+                choices: [{ delta: { content: buffer } }]
+              };
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+              buffer = '';
+              // Small delay for natural streaming feel
+              await new Promise(resolve => setTimeout(resolve, 10));
+            }
+          }
+          
+          // Send done signal
+          controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+          controller.close();
+        }
+      });
+
+      return new Response(stream, {
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive'
+        },
+      });
+    }
+
+    // Non-streaming response (fallback)
     return new Response(
       JSON.stringify({
         response: assistantMessage,
