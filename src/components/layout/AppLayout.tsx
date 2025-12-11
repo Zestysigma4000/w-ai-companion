@@ -50,9 +50,9 @@ function AppLayoutContent() {
   };
 
   return (
-    <div className="h-[100dvh] w-full flex bg-background overflow-hidden">
-      {/* Main Header - Integrated with mobile nav */}
-      <div className="fixed top-0 left-0 right-0 z-50 h-14 bg-background/80 backdrop-blur-lg border-b border-border flex items-center px-2 md:px-4 gap-1 md:gap-3 safe-area-top">
+    <div className="h-[100dvh] w-full flex flex-col bg-background overflow-hidden">
+      {/* Main Header - Fixed at top */}
+      <header className="flex-shrink-0 h-14 bg-background/80 backdrop-blur-lg border-b border-border flex items-center px-2 md:px-4 gap-1 md:gap-3 z-50">
         {/* Hamburger menu - Desktop only */}
         <Button
           variant="ghost"
@@ -141,19 +141,22 @@ function AppLayoutContent() {
             <LogOut className="h-5 w-5" />
           </Button>
         </div>
-      </div>
+      </header>
 
-      {/* Sidebar - Desktop only */}
-      {sidebarOpen && (
-        <div className="hidden md:block">
-          <AppSidebar />
-        </div>
-      )}
-      
-      {/* Main Content Area */}
-      <main className="flex-1 pt-14 flex flex-col min-w-0 h-full overflow-hidden">
-        <ChatInterface />
-      </main>
+      {/* Content area below header */}
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        {/* Sidebar - Desktop only, fixed width */}
+        {sidebarOpen && (
+          <aside className="hidden md:flex flex-shrink-0 w-64 h-full">
+            <AppSidebar />
+          </aside>
+        )}
+        
+        {/* Main Content Area */}
+        <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+          <ChatInterface />
+        </main>
+      </div>
       
       {/* Mobile History Sheet */}
       <HistorySheet open={historyOpen} onOpenChange={setHistoryOpen} />
