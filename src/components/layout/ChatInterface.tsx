@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "../chat/MessageBubble";
-import { Send, File, Brain, Loader2, Search, Code, Sparkles, Image } from "lucide-react";
+import { Send, File, Brain, Loader2, Search, Code, Sparkles, Image, Square } from "lucide-react";
 import { useConversations } from "@/hooks/useConversations";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { useUserSettings } from "@/hooks/useUserSettings";
@@ -66,6 +66,7 @@ export function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Message pagination constants
   const MESSAGES_PER_PAGE = 50;
@@ -310,6 +311,9 @@ export function ChatInterface() {
       
       setToolDetails(null);
       
+      // Create abort controller for cancellation
+      abortControllerRef.current = new AbortController();
+      
       const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
       
       const response = await fetch(CHAT_URL, {
@@ -327,6 +331,7 @@ export function ChatInterface() {
           typingPreview,
           stream: true
         }),
+        signal: abortControllerRef.current.signal
       });
 
       if (!response.ok) {
@@ -519,6 +524,19 @@ export function ChatInterface() {
     } catch (error) {
       console.error('Error getting AI response:', error);
       
+      // Handle cancelled requests gracefully
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('Request was cancelled by user');
+        // Mark any typing message as stopped
+        setMessages(prev => prev.map(m => 
+          m.isTyping ? { ...m, isTyping: false, content: m.content + '\n\n*[Response cancelled]*' } : m
+        ));
+        setIsLoading(false);
+        setPersistentToolDetails(null);
+        setToolDetails(null);
+        return;
+      }
+      
       let errorMessage = "I'm experiencing technical difficulties. Please try again in a moment.";
       
       if (error instanceof Error) {
@@ -550,8 +568,17 @@ export function ChatInterface() {
       setUploadingFiles(false);
       setPersistentToolDetails(null);
       setToolDetails(null);
+      abortControllerRef.current = null;
     }
   };
+
+  // Cancel streaming response
+  const handleCancelResponse = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      toast.info('Response cancelled');
+    }
+  }, []);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     // Only send on Enter if the setting is enabled
@@ -998,24 +1025,35 @@ export function ChatInterface() {
                   />
                 )}
                 
-                <Button 
-                  onClick={imageGenMode ? handleGenerateImage : handleSendMessage}
-                  disabled={!inputValue.trim() || isLoading || uploadingFiles || isGeneratingImage}
-                  className={`transition-all duration-300 h-10 w-10 p-0 ${
-                    imageGenMode 
-                      ? 'bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white' 
-                      : 'bg-gradient-primary hover:opacity-90 text-white glow-primary'
-                  }`}
-                  size="sm"
-                >
-                  {isGeneratingImage ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : imageGenMode ? (
-                    <Image className="w-4 h-4" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                </Button>
+                {isLoading ? (
+                  <Button 
+                    onClick={handleCancelResponse}
+                    className="transition-all duration-300 h-10 w-10 p-0 bg-destructive hover:bg-destructive/90 text-white"
+                    size="sm"
+                    title="Cancel response"
+                  >
+                    <Square className="w-4 h-4" />
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={imageGenMode ? handleGenerateImage : handleSendMessage}
+                    disabled={!inputValue.trim() || uploadingFiles || isGeneratingImage}
+                    className={`transition-all duration-300 h-10 w-10 p-0 ${
+                      imageGenMode 
+                        ? 'bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white' 
+                        : 'bg-gradient-primary hover:opacity-90 text-white glow-primary'
+                    }`}
+                    size="sm"
+                  >
+                    {isGeneratingImage ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : imageGenMode ? (
+                      <Image className="w-4 h-4" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
           </div>
